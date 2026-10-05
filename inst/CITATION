@@ -1,0 +1,45 @@
+citHeader("RSEMflow coordinates established R/Bioconductor methods. Cite the methods used in your analysis:")
+
+bibentry(
+  bibtype = "Article",
+  title = "RSEM: accurate transcript quantification from RNA-Seq data with or without a reference genome",
+  author = c(person("Bo", "Li"), person("Colin N.", "Dewey")),
+  journal = "BMC Bioinformatics",
+  year = "2011",
+  volume = "12",
+  pages = "323",
+  doi = "10.1186/1471-2105-12-323"
+)
+
+bibentry(
+  bibtype = "Article",
+  title = "Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2",
+  author = c(person("Michael I.", "Love"), person("Wolfgang", "Huber"), person("Simon", "Anders")),
+  journal = "Genome Biology",
+  year = "2014",
+  volume = "15",
+  pages = "550",
+  doi = "10.1186/s13059-014-0550-8"
+)
+
+bibentry(
+  bibtype = "Article",
+  title = "Differential analyses for RNA-seq: transcript-level estimates improve gene-level inferences",
+  author = c(person("Charlotte", "Soneson"), person("Michael I.", "Love"), person("Mark D.", "Robinson")),
+  journal = "F1000Research",
+  year = "2015",
+  volume = "4",
+  pages = "1521",
+  doi = "10.12688/f1000research.7563.2"
+)
+
+bibentry(
+  bibtype = "Article",
+  title = "GSVA: gene set variation analysis for microarray and RNA-seq data",
+  author = c(person("Sonja", "Hanzelmann"), person("Robert", "Castelo"), person("Justin", "Guinney")),
+  journal = "BMC Bioinformatics",
+  year = "2013",
+  volume = "14",
+  pages = "7",
+  doi = "10.1186/1471-2105-14-7"
+)

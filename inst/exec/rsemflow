@@ -1,0 +1,12 @@
+#!/usr/bin/env Rscript
+
+status <- tryCatch({
+  suppressPackageStartupMessages(library(rsemflow))
+  rsemflow::cli_main(commandArgs(trailingOnly = TRUE))
+  0L
+}, error = function(e) {
+  cat("ERROR: ", conditionMessage(e), "\n", sep = "", file = stderr())
+  1L
+})
+
+quit(status = status, save = "no")

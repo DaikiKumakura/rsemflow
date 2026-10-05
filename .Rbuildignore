@@ -1,0 +1,6 @@
+^\.git$
+^\.github$
+^rsemflow\.Rproj$
+^install_local\.sh$
+^scripts$
+^\.DS_Store$

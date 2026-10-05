@@ -1,0 +1,7 @@
+sample_id	condition	batch	age
+C1	Control	A	42
+C2	Control	B	51
+C3	Control	A	47
+D1	Drug	B	49
+D2	Drug	A	55
+D3	Drug	B	53
