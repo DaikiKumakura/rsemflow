@@ -1,0 +1,121 @@
+---
+title: "Get started with rsemflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Get started with rsemflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+rsemflow takes the `*.genes.results` files written by RSEM and a sample
+metadata table, and produces the standard downstream results of a bulk RNA-seq
+experiment as tab-separated tables:
+
+- expression summaries per sample and per gene,
+- normalized and variance-stabilized expression,
+- PCA and sample correlation,
+- DESeq2 differential expression for a design you specify,
+- preranked GSEA and GSVA/ssGSEA pathway scores,
+- gene annotation.
+
+It does not draw figures. Every table can be opened in R, Python, Excel, or
+Prism.
+
+## What you need
+
+```text
+project/
+├── data/
+│   ├── S01.genes.results
+│   ├── S02.genes.results
+│   └── ...
+└── metadata.tsv
+```
+
+`metadata.tsv` is an ordinary table with a `sample_id` column that matches the
+file names (`S01.genes.results` → `S01`), plus any columns that describe the
+samples:
+
+```text
+sample_id	condition	batch
+S01	Control	A
+S02	Control	B
+S03	Drug	A
+S04	Drug	B
+```
+
+## Three commands
+
+Once installed (see `vignette("installation", package = "rsemflow")`), a first
+analysis is three commands:
+
+```bash
+rsemflow data import --i-rsem-dir data/ --m-metadata metadata.tsv --o-study study/
+rsemflow expression pca --i-study study/ --o-pca results/pca/
+rsemflow differential deseq2 \
+  --i-study study/ \
+  --p-formula '~ batch + condition' \
+  --p-term condition \
+  --p-reference condition::Control \
+  --o-differential results/differential/
+```
+
+`data import` checks the input and stores it as a *study* directory. Every
+later command reads that study, so the RSEM files are parsed and validated once.
+
+## The same analysis in R
+
+Each command is an ordinary R function. Here they run on the synthetic example
+shipped with the package (6 samples, 200 genes):
+
+```{r}
+library(rsemflow)
+
+ex <- system.file("extdata", "example", package = "rsemflow")
+study <- read_rsem_study(
+  rsem_dir = file.path(ex, "data"),
+  metadata = file.path(ex, "metadata.tsv")
+)
+study
+```
+
+```{r}
+pca <- compute_pca(study)
+pca$variance[1:3, ]
+```
+
+```{r}
+de <- differential_deseq2(
+  study,
+  formula = ~ batch + condition,
+  term = "condition",
+  reference = "condition::Control"
+)
+names(de$results)
+head(de$results$condition_Drug_vs_Control[, c("gene_id", "baseMean", "log2FoldChange", "padj")])
+```
+
+The example data are synthetic, so the numbers carry no biological meaning.
+
+## How rsemflow treats your design
+
+rsemflow never chooses a model for you. The formula (`~ batch + condition`), the
+term to report (`condition`), and the reference level (`Control`) are always
+explicit. In exchange, it stops instead of returning results that cannot be
+trusted: when sample IDs do not match the metadata, when gene tables differ
+between files, when a model variable has missing values, or when the design is
+confounded (for example, every Control sample in batch A and every Drug sample
+in batch B).
+
+## Next steps
+
+- `vignette("installation", package = "rsemflow")`: installing the R package
+  and the `rsemflow` command.
+- `vignette("tutorial", package = "rsemflow")`: a full command-line walkthrough
+  with every output file.
+- `vignette("designs", package = "rsemflow")`: paired, multi-group, numeric,
+  interaction, and time-course designs.

@@ -1,0 +1,296 @@
+---
+title: "Tutorial: a complete command-line analysis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Tutorial: a complete command-line analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(rsemflow)
+
+# Copy the bundled example into a scratch directory and run every chunk there,
+# so the commands below are exactly the ones a reader would type.
+work <- file.path(tempdir(), "rsemflow-tutorial")
+unlink(work, recursive = TRUE)
+dir.create(work)
+ex <- system.file("extdata", "example", package = "rsemflow")
+file.copy(file.path(ex, "data"), work, recursive = TRUE)
+file.copy(file.path(ex, "metadata.tsv"), work)
+knitr::opts_knit$set(root.dir = work)
+
+# Each `bash` block is shown as typed; the hidden chunk after it runs the same
+# command through rsemflow::cli_main() and prints what the command prints.
+rsemflow_cmd <- function(cmd) {
+  args <- scan(text = cmd, what = "", quiet = TRUE)
+  cli_main(args[-1])
+}
+```
+
+This tutorial runs the whole command-line workflow on the synthetic example
+that ships with rsemflow: six samples (three Control, three Drug, in two
+batches) and 200 genes. Every output shown below was produced by the commands
+on this page when the documentation was built.
+
+The data are synthetic; the numbers illustrate the file formats, not biology.
+
+## 0. The input
+
+All outputs are plain TSV files. To look at them, this page uses a small
+helper that reads a table and shows its first rows:
+
+```{r}
+show_table <- function(path, n = 6, cols = NULL) {
+  x <- utils::read.delim(path, check.names = FALSE)
+  if (!is.null(cols)) x <- x[, cols, drop = FALSE]
+  utils::head(x, n)
+}
+```
+
+```text
+.
+├── data/
+│   ├── C1.genes.results   C2.genes.results   C3.genes.results
+│   └── D1.genes.results   D2.genes.results   D3.genes.results
+└── metadata.tsv
+```
+
+```{r}
+show_table("metadata.tsv")
+```
+
+Each RSEM file is the standard gene-level output:
+
+```{r}
+show_table("data/C1.genes.results", n = 3)
+```
+
+## 1. Import
+
+```bash
+rsemflow data import --i-rsem-dir data/ --m-metadata metadata.tsv --o-study study/
+```
+
+```{r, echo = FALSE}
+rsemflow_cmd("rsemflow data import --i-rsem-dir data/ --m-metadata metadata.tsv --o-study study/")
+```
+
+Import checks that every RSEM file has the required columns, that file names
+and `sample_id` match one-to-one, and that all files share the same gene table.
+It then reads the counts with tximport and writes a study directory:
+
+```{r}
+list.files("study")
+show_table("study/study-info.tsv", n = 10)
+```
+
+`expected_count.tsv`, `tpm.tsv`, and `effective_length.tsv` are gene × sample
+matrices. `study.rds` is what later commands read.
+
+`age` contains only numbers, so it was treated as numeric; `condition` and
+`batch` became categorical. If a numeric-looking column is really a set of
+groups (for example time points 0, 6, 24), add `--p-categorical time` to
+`data import`.
+
+## 2. Expression summaries
+
+```bash
+rsemflow data summarize --i-study study/ --o-summary results/summary/
+```
+
+```{r, echo = FALSE}
+rsemflow_cmd("rsemflow data summarize --i-study study/ --o-summary results/summary/")
+```
+
+```{r}
+show_table("results/summary/samples.tsv")
+show_table("results/summary/genes.tsv", n = 3)
+```
+
+These are expression-level summaries computed from the RSEM tables, not
+alignment QC. rsemflow does not flag or remove samples; that decision stays
+with you.
+
+## 3. Sample structure: PCA and correlation
+
+```bash
+rsemflow expression pca --i-study study/ --o-pca results/pca/
+```
+
+```{r, echo = FALSE}
+rsemflow_cmd("rsemflow expression pca --i-study study/ --o-pca results/pca/")
+```
+
+By default PCA uses the variance-stabilized counts (DESeq2 VST) of the 500 most
+variable genes (here all 200), centred and not scaled.
+
+```{r}
+show_table("results/pca/scores.tsv", cols = c("sample_id", "PC1", "PC2", "PC3"))
+show_table("results/pca/variance.tsv", n = 3)
+```
+
+`loadings.tsv` holds the gene loadings and `analysis-info.tsv` records the
+transformation and number of genes used.
+
+```bash
+rsemflow expression correlation --i-study study/ --o-correlation results/correlation.tsv
+```
+
+```{r, echo = FALSE}
+rsemflow_cmd("rsemflow expression correlation --i-study study/ --o-correlation results/correlation.tsv")
+```
+
+```{r}
+corr <- show_table("results/correlation.tsv")
+corr[, -1] <- round(corr[, -1], 3)
+corr
+```
+
+Use `--p-method spearman` or `--p-transform log2-tpm` to change the defaults.
+
+## 4. Normalized expression
+
+```bash
+rsemflow expression normalize --i-study study/ --p-method vst --o-expression results/vst.tsv
+```
+
+```{r, echo = FALSE}
+rsemflow_cmd("rsemflow expression normalize --i-study study/ --p-method vst --o-expression results/vst.tsv")
+```
+
+`--p-method` accepts `vst`, `normalized-counts` (DESeq2 size factors), and
+`log2-tpm` (`log2(TPM + 1)`).
+
+## 5. Differential expression
+
+The samples come from two batches, so batch goes into the model and the
+Drug-versus-Control effect is estimated within batch:
+
+```bash
+rsemflow differential deseq2 \
+  --i-study study/ \
+  --p-formula '~ batch + condition' \
+  --p-term condition \
+  --p-reference condition::Control \
+  --o-differential results/differential/
+```
+
+```{r, echo = FALSE}
+rsemflow_cmd("rsemflow differential deseq2 --i-study study/ --p-formula '~ batch + condition' --p-term condition --p-reference condition::Control --o-differential results/differential/")
+```
+
+```{r}
+list.files("results/differential")
+de <- utils::read.delim("results/differential/condition_Drug_vs_Control.tsv")
+de <- de[order(de$padj), ]
+utils::head(de[, c("gene_id", "contrast", "baseMean", "log2FoldChange", "lfcSE", "stat", "padj")])
+```
+
+The first six columns identify the comparison; the rest are the DESeq2 result
+columns, with unshrunken log2 fold changes. The three other files record exactly
+what was fitted:
+
+```{r}
+show_table("results/differential/analysis-info.tsv", n = 10)
+show_table("results/differential/contrasts.tsv")
+show_table("results/differential/design-matrix.tsv")
+```
+
+For paired, multi-group, numeric, interaction, and time-course designs, see
+`vignette("designs", package = "rsemflow")`.
+
+## 6. Preranked GSEA
+
+GSEA ranks genes by the DESeq2 Wald statistic (`stat`). With real human or
+mouse data, MSigDB collections are one option away:
+
+```bash
+rsemflow enrichment gsea \
+  --i-differential results/differential/condition_Drug_vs_Control.tsv \
+  --p-species human --p-collection hallmark \
+  --o-enrichment results/gsea.tsv
+```
+
+The example genes are synthetic and match no MSigDB set, so here we use a
+custom GMT file: genes 1–20, genes 21–40, and genes 101–150.
+
+```{r}
+ids <- sprintf("ENSG%011d", 1:200)
+writeLines(c(
+  paste(c("GENES_001_020", "synthetic", ids[1:20]), collapse = "\t"),
+  paste(c("GENES_021_040", "synthetic", ids[21:40]), collapse = "\t"),
+  paste(c("GENES_101_150", "synthetic", ids[101:150]), collapse = "\t")
+), "sets.gmt")
+```
+
+```bash
+rsemflow enrichment gsea \
+  --i-differential results/differential/condition_Drug_vs_Control.tsv \
+  --i-genesets sets.gmt \
+  --p-min-size 10 \
+  --o-enrichment results/gsea.tsv
+```
+
+```{r, echo = FALSE}
+rsemflow_cmd("rsemflow enrichment gsea --i-differential results/differential/condition_Drug_vs_Control.tsv --i-genesets sets.gmt --p-min-size 10 --o-enrichment results/gsea.tsv")
+```
+
+```{r}
+gsea <- utils::read.delim("results/gsea.tsv")
+gsea$leadingEdge <- substr(gsea$leadingEdge, 1, 40)
+gsea[, c("pathway", "size", "NES", "pval", "padj", "leadingEdge")]
+```
+
+`leadingEdge` lists genes separated by `;`. p-values are estimated by sampling,
+so rsemflow fixes the seed (`--p-seed`, default 42) and repeated runs give the
+same table.
+
+## 7. GSVA and ssGSEA scores
+
+```bash
+rsemflow enrichment gsva \
+  --i-study study/ \
+  --i-genesets sets.gmt \
+  --p-min-size 10 \
+  --o-scores results/gsva.tsv
+```
+
+```{r, echo = FALSE}
+rsemflow_cmd("rsemflow enrichment gsva --i-study study/ --i-genesets sets.gmt --p-min-size 10 --o-scores results/gsva.tsv")
+```
+
+```{r}
+gsva <- utils::read.delim("results/gsva.tsv", check.names = FALSE)
+gsva <- gsva[, -(2:4)]
+gsva[, -1] <- round(gsva[, -1], 3)
+gsva
+```
+
+Scores are computed per sample from `log2(TPM + 1)`; add `--p-method ssgsea`
+for single-sample GSEA. rsemflow does not test scores between groups.
+
+## 8. Gene annotation
+
+Annotation adds gene symbols and biotypes while keeping the original RSEM
+`gene_id`. The most faithful source is the GTF used to build the RSEM
+reference:
+
+```bash
+rsemflow annotation gtf --i-study study/ --i-gtf Homo_sapiens.GRCh38.gtf.gz --o-annotation results/annotation.tsv
+```
+
+Without the GTF, the Bioconductor OrgDb packages map stable Ensembl IDs:
+
+```bash
+rsemflow annotation ensembl --i-study study/ --p-species human --o-annotation results/annotation.tsv
+```
+
+Join the annotation to any result table by `gene_id`.
+
+## Everything that was written
+
+```{r}
+list.files("results", recursive = TRUE)
+```

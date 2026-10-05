@@ -10,3 +10,6 @@
 ^\.DS_Store$
 ^rsemflow\.Rcheck$
 ^rsemflow_.*\.tar\.gz$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

@@ -13,7 +13,8 @@ Description: A command-line and R interface for reproducible downstream
     annotation. Every result is written as a tab-separated table; the package
     does not draw figures.
 License: MIT + file LICENSE
-URL: https://github.com/DaikiKumakura/rsemflow
+URL: https://daikikumakura.github.io/rsemflow/,
+    https://github.com/DaikiKumakura/rsemflow
 BugReports: https://github.com/DaikiKumakura/rsemflow/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -34,7 +35,10 @@ Imports:
     tximport,
     utils
 Suggests:
+    knitr,
     org.Hs.eg.db,
     org.Mm.eg.db,
+    rmarkdown,
     testthat (>= 3.0.0)
+VignetteBuilder: knitr
 Config/testthat/edition: 3

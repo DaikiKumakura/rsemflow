@@ -1,0 +1,59 @@
+url: https://daikikumakura.github.io/rsemflow/
+
+template:
+  bootstrap: 5
+
+home:
+  title: "rsemflow: downstream analysis for RSEM gene-level results"
+
+navbar:
+  structure:
+    left: [intro, installation, tutorial, designs, reference, news]
+    right: [search, github]
+  components:
+    installation:
+      text: Installation
+      href: articles/installation.html
+    tutorial:
+      text: Tutorial
+      href: articles/tutorial.html
+    designs:
+      text: Designs
+      href: articles/designs.html
+
+articles:
+  - title: Guides
+    navbar: ~
+    contents:
+      - installation
+      - tutorial
+      - designs
+
+reference:
+  - title: Import and storage
+    contents:
+      - read_rsem_study
+      - read_study
+      - summarize_study
+  - title: Expression
+    contents:
+      - normalize_expression
+      - compute_pca
+      - compute_correlation
+  - title: Differential expression
+    contents:
+      - differential_deseq2
+  - title: Gene sets
+    contents:
+      - run_gsea
+      - run_gsva
+  - title: Annotation
+    contents:
+      - annotate_ensembl
+      - annotate_gtf
+  - title: Command line
+    contents:
+      - cli_main
+  - title: Package
+    contents:
+      - rsemflow-package

@@ -1,0 +1,208 @@
+---
+title: "Differential-expression designs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Differential-expression designs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+`rsemflow differential deseq2` fits one DESeq2 model and writes one table per
+comparison. Three options define the analysis:
+
+| Option | Meaning |
+| --- | --- |
+| `--p-formula` | the full model, e.g. `'~ batch + condition'` |
+| `--p-term` | which term's results to write |
+| `--p-reference COLUMN::LEVEL` | the reference (denominator) level of a factor; repeatable |
+
+Quote the formula so the shell does not split it. Each section below shows the
+metadata, the command, the equivalent R call, and the tables produced.
+
+## Two groups
+
+```text
+sample_id	condition
+C1	Control
+C2	Control
+C3	Control
+D1	Drug
+D2	Drug
+D3	Drug
+```
+
+```bash
+rsemflow differential deseq2 --i-study study/ \
+  --p-formula '~ condition' --p-term condition \
+  --p-reference condition::Control \
+  --o-differential results/differential/
+```
+
+```{r}
+differential_deseq2(study, ~ condition, "condition", reference = "condition::Control")
+```
+
+Output: `condition_Drug_vs_Control.tsv`. Positive `log2FoldChange` means higher
+in Drug.
+
+## Adjusting for batch
+
+Put the nuisance variable before the variable of interest:
+
+```bash
+--p-formula '~ batch + condition' --p-term condition --p-reference condition::Control
+```
+
+Batch and condition must not be confounded. If every Control sample was in batch
+A and every Drug sample in batch B, the two effects cannot be separated and
+rsemflow stops with "The design matrix is not full rank".
+
+## Paired samples
+
+```text
+sample_id	patient	condition
+P01_pre	P01	Pre
+P01_post	P01	Post
+P02_pre	P02	Pre
+P02_post	P02	Post
+```
+
+```bash
+--p-formula '~ patient + condition' --p-term condition --p-reference condition::Pre
+```
+
+Including `patient` compares Post with Pre within each patient. Output:
+`condition_Post_vs_Pre.tsv`.
+
+## More than two groups
+
+```bash
+--p-formula '~ treatment' --p-term treatment --p-reference treatment::Vehicle
+```
+
+Every level is compared with the reference: `treatment_DrugA_vs_Vehicle.tsv`,
+`treatment_DrugB_vs_Vehicle.tsv`. Add other pairs with `--p-contrast
+COLUMN::NUMERATOR::DENOMINATOR` (repeatable):
+
+```bash
+--p-contrast treatment::DrugB::DrugA
+```
+
+```{r}
+differential_deseq2(
+  study, ~ treatment, "treatment",
+  reference = "treatment::Vehicle",
+  contrast = "treatment::DrugB::DrugA"
+)
+```
+
+## A numeric covariate
+
+When the term is numeric, the table reports the change in log2 expression per
+unit of the variable:
+
+```bash
+--p-formula '~ sex + age + response_score' --p-term response_score
+```
+
+Output: `response_score.tsv`, with `contrast = per_unit`. Columns are numeric
+when every value parses as a number; force a type at import with
+`--p-categorical` or `--p-numeric`. For example, sampling times 0, 6, and 24 h
+analysed as three groups:
+
+```bash
+rsemflow data import --i-rsem-dir data/ --m-metadata metadata.tsv \
+  --p-categorical time --o-study study/
+```
+
+## Interaction
+
+Does the drug response differ between genotypes?
+
+```bash
+--p-formula '~ genotype * treatment' \
+--p-term genotype:treatment \
+--p-reference genotype::WT --p-reference treatment::Vehicle
+```
+
+One table per interaction coefficient, named after the DESeq2 coefficient
+(`genotypeKO.treatmentDrug.tsv`). Its `log2FoldChange` is the drug effect in KO
+minus the drug effect in WT.
+
+In an interaction model, `--p-term treatment` on its own gives the drug effect
+**at the reference genotype (WT)**. rsemflow warns about this.
+
+## The effect within one group (simple effect)
+
+To get the drug effect within KO from the same interaction model, add one
+`--p-contrast` and one `--p-at`:
+
+```bash
+--p-formula '~ genotype * treatment' \
+--p-term treatment \
+--p-reference genotype::WT --p-reference treatment::Vehicle \
+--p-contrast treatment::Drug::Vehicle \
+--p-at genotype::KO
+```
+
+```{r}
+differential_deseq2(
+  study, ~ genotype * treatment, "treatment",
+  reference = c("genotype::WT", "treatment::Vehicle"),
+  contrast = "treatment::Drug::Vehicle",
+  at = "genotype::KO"
+)
+```
+
+Output: `treatment_Drug_vs_Vehicle_at_genotype_KO.tsv`, computed as the main
+effect plus the KO interaction coefficient (recorded in `contrasts.tsv`). The
+package tests check that this equals the drug effect obtained by refitting with
+KO as the reference genotype.
+
+In version 0.1.0, `--p-at` accepts exactly one `--p-at` and one `--p-contrast`,
+and the contrast denominator must be the reference level.
+
+## Any effect of time (likelihood-ratio test)
+
+To ask whether expression changes over time at all, compare a full and a
+reduced model:
+
+```bash
+--p-formula '~ patient + time' \
+--p-test lrt --p-reduced '~ patient' \
+--p-term time
+```
+
+```{r}
+differential_deseq2(
+  study, ~ patient + time, "time",
+  test = "lrt", reduced = ~ patient
+)
+```
+
+Output: `time_omnibus.tsv`. The reduced formula must be nested in the full one
+and must drop the term. Because the test has no single direction,
+`log2FoldChange` and `lfcSE` are `NA`, and the table cannot be used for
+preranked GSEA.
+
+## What every run records
+
+| File | Content |
+| --- | --- |
+| `design-matrix.tsv` | the model matrix actually fitted, one row per sample |
+| `contrasts.tsv` | one row per result table: name, term, contrast, DESeq2 coefficient |
+| `analysis-info.tsv` | formula, term, test, reduced formula, alpha |
+
+## What rsemflow checks, and what it does not
+
+Checked before fitting: model variables exist and have no missing values, the
+term is part of the formula, reference and contrast levels exist, and the design
+matrix is full rank.
+
+Not checked: whether you have enough biological replicates, whether the model
+is appropriate for your experiment, or whether samples should be excluded.
+Log fold changes are not shrunk.

@@ -4,6 +4,13 @@
 [![R-CMD-check](https://github.com/DaikiKumakura/rsemflow/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/DaikiKumakura/rsemflow/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
+**Documentation:** <https://daikikumakura.github.io/rsemflow/> ·
+[Get started](https://daikikumakura.github.io/rsemflow/articles/rsemflow.html) ·
+[Installation](https://daikikumakura.github.io/rsemflow/articles/installation.html) ·
+[Tutorial](https://daikikumakura.github.io/rsemflow/articles/tutorial.html) ·
+[Designs](https://daikikumakura.github.io/rsemflow/articles/designs.html) ·
+[Reference](https://daikikumakura.github.io/rsemflow/reference/)
+
 Downstream bulk RNA-seq analysis of RSEM `*.genes.results` files, driven by an
 ordinary sample metadata table and run from the command line or from R.
 

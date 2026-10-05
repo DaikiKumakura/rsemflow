@@ -1,0 +1,120 @@
+---
+title: "Installation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Installation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+## Requirements
+
+- R 4.3 or newer.
+- Bioconductor packages: tximport, DESeq2, SummarizedExperiment,
+  AnnotationDbi, fgsea, GSVA, and the annotation packages org.Hs.eg.db and
+  org.Mm.eg.db.
+- CRAN packages: data.table and msigdbr.
+
+rsemflow supports human and mouse data.
+
+## Option 1: install the R package from GitHub
+
+Use this if you work in R, or on Windows without WSL.
+
+```{r}
+install.packages("BiocManager")
+BiocManager::install("DaikiKumakura/rsemflow")
+```
+
+`BiocManager` installs the CRAN and Bioconductor dependencies from the right
+repositories. The OrgDb annotation packages are optional dependencies; install
+them if you will use `annotation ensembl`:
+
+```{r}
+BiocManager::install(c("org.Hs.eg.db", "org.Mm.eg.db"))
+```
+
+## Option 2: install from source with the command-line launcher
+
+On Linux, macOS, WSL, or an HPC login node, the installer also puts an
+`rsemflow` command on your `PATH`:
+
+```bash
+git clone https://github.com/DaikiKumakura/rsemflow.git
+cd rsemflow
+bash install_local.sh
+```
+
+The installer
+
+1. checks that `R` and `Rscript` are available;
+2. installs missing dependencies (`scripts/install_dependencies.R`);
+3. runs `R CMD INSTALL .`;
+4. links the launcher into `$HOME/.local/bin` (or `$RSEMFLOW_BIN`);
+5. runs `rsemflow --version` to confirm.
+
+Options, set as environment variables:
+
+| Variable | Effect |
+| --- | --- |
+| `RSEMFLOW_BIN=/path/bin` | install the launcher somewhere else |
+| `RSEMFLOW_SKIP_DEPS=1` | skip the dependency step (e.g. dependencies are managed by your cluster) |
+
+If `$HOME/.local/bin` is not on your `PATH`, add it (for example in
+`~/.bashrc`):
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+## Running the command line on Windows
+
+Without WSL, call the same command-line interface through `Rscript`; everything
+after `-e "rsemflow::cli_main()"` is passed to rsemflow:
+
+```bash
+Rscript -e "rsemflow::cli_main()" data import --i-rsem-dir data --m-metadata metadata.tsv --o-study study
+```
+
+## Check the installation
+
+```bash
+rsemflow --version
+rsemflow --help
+```
+
+Then run the bundled example, which needs no annotation database or download:
+
+```bash
+bash inst/extdata/example/run_example.sh example-output
+```
+
+or, from R:
+
+```{r}
+library(rsemflow)
+ex <- system.file("extdata", "example", package = "rsemflow")
+study <- read_rsem_study(file.path(ex, "data"), file.path(ex, "metadata.tsv"))
+study
+```
+
+## MSigDB gene sets
+
+`enrichment gsea` and `enrichment gsva` use MSigDB through the msigdbr package
+unless you supply your own GMT file. Depending on your msigdbr version, the
+first use of a collection may download and cache data, so run it once on a
+machine with internet access. Custom GMT files (`--i-genesets`) need no
+download.
+
+## Troubleshooting
+
+| Message | Cause and fix |
+| --- | --- |
+| `rsemflow: command not found` | The launcher directory is not on `PATH`; see above. |
+| `R and Rscript must be on PATH` | Install R, or add its `bin` directory to `PATH`. |
+| `Annotation package 'org.Hs.eg.db' is not installed` | `BiocManager::install("org.Hs.eg.db")` (or `org.Mm.eg.db`). |
+| `Study format version ... is not supported` | The study was written by a different rsemflow version; run `rsemflow data import` again. |

@@ -5,3 +5,5 @@
 *.Rcheck/
 rsemflow_*.tar.gz
 rsemflow-example-output/
+docs/
+inst/doc
