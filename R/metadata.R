@@ -1,5 +1,7 @@
 .read_metadata <- function(path) {
-  md <- .read_table_auto(path)
+  # sample_id is always read as text so that IDs such as "001" keep their
+  # leading zeros and still match RSEM file names.
+  md <- .read_table_auto(path, character_cols = "sample_id")
   if (!"sample_id" %in% names(md)) {
     .stopf("Metadata must contain a column named 'sample_id'.")
   }

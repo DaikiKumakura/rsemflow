@@ -90,6 +90,7 @@
         "p-min-size" = c("default:15", "Minimum mapped gene-set size."),
         "p-max-size" = c("default:500", "Maximum mapped gene-set size."),
         "p-eps" = c("default:0", "fgseaMultilevel eps."),
+        "p-seed" = c("default:42", "Random seed for fgseaMultilevel."),
         "o-enrichment" = c("required", "Output TSV.")
       )
     ),
@@ -115,7 +116,7 @@
   i <- 1L
   while (i <= length(args)) {
     token <- args[[i]]
-    if (token == "--help") {
+    if (token %in% c("--help", "-h")) {
       out$help <- TRUE
       i <- i + 1L
       next
@@ -125,12 +126,10 @@
     }
     key <- sub("^--", "", token)
     if (i == length(args) || startsWith(args[[i + 1L]], "--")) {
-      value <- "true"
-      i <- i + 1L
-    } else {
-      value <- args[[i + 1L]]
-      i <- i + 2L
+      .stopf("Option --%s requires a value.", key)
     }
+    value <- args[[i + 1L]]
+    i <- i + 2L
     if (is.null(out[[key]])) out[[key]] <- value else out[[key]] <- c(out[[key]], value)
   }
   out
@@ -153,8 +152,20 @@
     if (identical(type, "required") && is.null(opts[[nm]])) {
       .stopf("Missing required option --%s for '%s'.", nm, action)
     }
+    if (!identical(type, "multiple") && length(opts[[nm]]) > 1L) {
+      .stopf("Option --%s may be given only once.", nm)
+    }
   }
   invisible(TRUE)
+}
+
+.opt_number <- function(opts, key, integer = FALSE) {
+  raw <- .opt(opts, key)
+  x <- suppressWarnings(as.numeric(raw))
+  if (length(x) != 1L || is.na(x) || (integer && x != round(x))) {
+    .stopf("Option --%s expects %s, got '%s'.", key, if (integer) "an integer" else "a number", raw)
+  }
+  if (integer) as.integer(x) else x
 }
 
 .option_default <- function(spec_entry) {
@@ -266,7 +277,6 @@ Version:
 
 .cli_data_summarize <- function(opts) {
   out <- .opt(opts, "o-summary")
-  .ensure_dir(out)
   s <- summarize_study(.opt(opts, "i-study"))
   .write_tsv(s$samples, file.path(out, "samples.tsv"))
   .write_tsv(s$genes, file.path(out, "genes.tsv"))
@@ -299,12 +309,13 @@ Version:
 
 .cli_expression_pca <- function(opts) {
   out <- .opt(opts, "o-pca")
-  .ensure_dir(out)
+  ntop <- .opt_number(opts, "p-ntop", integer = TRUE)
+  components <- .opt_number(opts, "p-components", integer = TRUE)
   p <- compute_pca(
     .opt(opts, "i-study"),
     transform = .opt(opts, "p-transform", "vst"),
-    ntop = as.integer(.opt(opts, "p-ntop", "500")),
-    components = as.integer(.opt(opts, "p-components", "10"))
+    ntop = ntop,
+    components = components
   )
   .write_tsv(p$scores, file.path(out, "scores.tsv"))
   .write_tsv(p$loadings, file.path(out, "loadings.tsv"))
@@ -328,7 +339,7 @@ Version:
 
 .cli_differential_deseq2 <- function(opts) {
   out <- .opt(opts, "o-differential")
-  .ensure_dir(out)
+  alpha <- .opt_number(opts, "p-alpha")
   x <- differential_deseq2(
     study = .opt(opts, "i-study"),
     metadata = .opt(opts, "m-metadata"),
@@ -341,7 +352,7 @@ Version:
     numeric = .opt(opts, "p-numeric", character()),
     test = .opt(opts, "p-test", "wald"),
     reduced = .opt(opts, "p-reduced"),
-    alpha = as.numeric(.opt(opts, "p-alpha", "0.05"))
+    alpha = alpha
   )
 
   design <- data.frame(
@@ -360,13 +371,16 @@ Version:
     term = .opt(opts, "p-term"),
     test = x$test,
     reduced = if (is.null(x$reduced)) "" else paste(deparse(x$reduced), collapse = ""),
-    alpha = .opt(opts, "p-alpha", "0.05")
+    alpha = x$alpha
   )
   .write_key_value(info, file.path(out, "analysis-info.tsv"))
   cat(sprintf("Wrote %d differential result table(s) to %s\n", length(x$results), out))
 }
 
 .cli_enrichment_gsea <- function(opts) {
+  sizes <- c(.opt_number(opts, "p-min-size", integer = TRUE), .opt_number(opts, "p-max-size", integer = TRUE))
+  eps <- .opt_number(opts, "p-eps")
+  seed <- .opt_number(opts, "p-seed", integer = TRUE)
   res <- run_gsea(
     differential = .opt(opts, "i-differential"),
     genesets = .opt(opts, "i-genesets"),
@@ -374,15 +388,17 @@ Version:
     collection = .opt(opts, "p-collection", "hallmark"),
     subcollection = .opt(opts, "p-subcollection"),
     rank = .opt(opts, "p-rank", "stat"),
-    min_size = as.integer(.opt(opts, "p-min-size", "15")),
-    max_size = as.integer(.opt(opts, "p-max-size", "500")),
-    eps = as.numeric(.opt(opts, "p-eps", "0"))
+    min_size = sizes[[1]],
+    max_size = sizes[[2]],
+    eps = eps,
+    seed = seed
   )
   .write_tsv(res, .opt(opts, "o-enrichment"))
   cat(sprintf("Wrote %d GSEA results to %s\n", nrow(res), .opt(opts, "o-enrichment")))
 }
 
 .cli_enrichment_gsva <- function(opts) {
+  sizes <- c(.opt_number(opts, "p-min-size", integer = TRUE), .opt_number(opts, "p-max-size", integer = TRUE))
   res <- run_gsva(
     study = .opt(opts, "i-study"),
     genesets = .opt(opts, "i-genesets"),
@@ -390,8 +406,8 @@ Version:
     collection = .opt(opts, "p-collection", "hallmark"),
     subcollection = .opt(opts, "p-subcollection"),
     method = .opt(opts, "p-method", "gsva"),
-    min_size = as.integer(.opt(opts, "p-min-size", "10")),
-    max_size = as.integer(.opt(opts, "p-max-size", "500"))
+    min_size = sizes[[1]],
+    max_size = sizes[[2]]
   )
   .write_tsv(res, .opt(opts, "o-scores"))
   cat(sprintf("Wrote %d pathway score rows to %s\n", nrow(res), .opt(opts, "o-scores")))
@@ -416,8 +432,20 @@ Version:
 
 #' RSEMflow command-line entry point
 #'
+#' Parses `rsemflow <module> <action> [options]` and calls the matching R
+#' function. Options use the prefixes `--i-` (inputs), `--m-` (metadata),
+#' `--p-` (parameters), and `--o-` (outputs). Add `--help` at any level for
+#' usage.
+#'
+#' The installed launcher script (`system.file("exec", "rsemflow", package =
+#' "rsemflow")`) calls this function. Without the launcher, use
+#' `Rscript -e "rsemflow::cli_main()" <module> <action> [options]`.
+#'
 #' @param args Character vector of command-line arguments.
-#' @return Invisibly returns zero on success.
+#' @return Invisibly returns zero on success. Errors are raised as R errors.
+#' @examples
+#' cli_main("--help")
+#' cli_main(c("differential", "deseq2", "--help"))
 #' @export
 cli_main <- function(args = commandArgs(trailingOnly = TRUE)) {
   if (!length(args) || args[[1]] %in% c("--help", "-h")) {
@@ -430,7 +458,7 @@ cli_main <- function(args = commandArgs(trailingOnly = TRUE)) {
   }
 
   module <- args[[1]]
-  if (length(args) == 1L || (length(args) >= 2L && args[[2]] == "--help")) {
+  if (length(args) == 1L || args[[2]] %in% c("--help", "-h")) {
     .print_module_help(module)
     return(invisible(0L))
   }

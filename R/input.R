@@ -73,10 +73,12 @@
   ref
 }
 
+.study_format_version <- 1L
+
 .new_study <- function(txi, metadata, files, source_dir) {
   structure(
     list(
-      format_version = 1L,
+      format_version = .study_format_version,
       rsemflow_version = .rsemflow_version(),
       created_at = format(Sys.time(), tz = "UTC", usetz = TRUE),
       source_dir = normalizePath(source_dir, mustWork = TRUE),
@@ -92,11 +94,27 @@
 
 #' Import RSEM gene-level results and metadata
 #'
+#' Finds every `*.genes.results` file in `rsem_dir`, takes the sample ID from
+#' the file name (`S01.genes.results` -> `S01`), matches the files to the
+#' `sample_id` column of `metadata`, and imports the counts with
+#' `tximport(type = "rsem")`.
+#'
+#' Import stops when a file lacks the standard RSEM columns, when sample IDs
+#' do not match the metadata one-to-one, or when the files do not share an
+#' identical gene table (same IDs in the same order, without duplicates).
+#'
+#' Metadata columns whose values all parse as numbers become numeric; the rest
+#' become factors. Use `categorical`/`numeric` to override.
+#'
 #' @param rsem_dir Directory containing `*.genes.results` files.
 #' @param metadata Path to TSV or CSV metadata with a `sample_id` column.
 #' @param categorical Optional metadata columns to force to categorical.
 #' @param numeric Optional metadata columns to force to numeric.
 #' @return An object of class `rsemflow_study`.
+#' @examples
+#' ex <- system.file("extdata", "example", package = "rsemflow")
+#' study <- read_rsem_study(file.path(ex, "data"), file.path(ex, "metadata.tsv"))
+#' study
 #' @export
 read_rsem_study <- function(rsem_dir, metadata, categorical = character(), numeric = character()) {
   files <- .find_rsem_files(rsem_dir)
@@ -124,12 +142,12 @@ read_rsem_study <- function(rsem_dir, metadata, categorical = character(), numer
 
   .validate_rsem_gene_ids(files)
 
-  txi <- tximport::tximport(
+  txi <- .quietly(tximport::tximport(
     files = files,
     type = "rsem",
     txIn = FALSE,
     txOut = FALSE
-  )
+  ))
 
   if (!identical(colnames(txi$counts), file_ids)) {
     colnames(txi$counts) <- file_ids
@@ -140,10 +158,23 @@ read_rsem_study <- function(rsem_dir, metadata, categorical = character(), numer
   .new_study(txi, md, files, rsem_dir)
 }
 
-#' Read a serialized RSEMflow study
+#' Read and write RSEMflow studies
+#'
+#' `write_study()` saves the study as `study.rds` plus plain TSV copies of the
+#' metadata, the expected-count, TPM, and effective-length matrices, a
+#' sample-to-file table, and `study-info.tsv`. `read_study()` restores the
+#' `study.rds`.
 #'
 #' @param path Study directory or a `study.rds` path.
-#' @return An object of class `rsemflow_study`.
+#' @return `read_study()` returns an object of class `rsemflow_study`;
+#'   `write_study()` invisibly returns `path`.
+#' @examples
+#' ex <- system.file("extdata", "example", package = "rsemflow")
+#' study <- read_rsem_study(file.path(ex, "data"), file.path(ex, "metadata.tsv"))
+#' out <- file.path(tempdir(), "study")
+#' write_study(study, out)
+#' list.files(out)
+#' identical(read_study(out)$sample_ids, study$sample_ids)
 #' @export
 read_study <- function(path) {
   rds <- if (dir.exists(path)) file.path(path, "study.rds") else path
@@ -154,14 +185,17 @@ read_study <- function(path) {
   if (!inherits(x, "rsemflow_study")) {
     .stopf("Input is not an RSEMflow study: %s", rds)
   }
+  if (!identical(as.integer(x$format_version), .study_format_version)) {
+    .stopf(
+      "Study format version %s is not supported by rsemflow %s (expected %d). Re-run 'rsemflow data import'.",
+      x$format_version, .rsemflow_version(), .study_format_version
+    )
+  }
   x
 }
 
-#' Write an RSEMflow study to a local directory
-#'
 #' @param study A `rsemflow_study`.
-#' @param path Output directory.
-#' @return Invisibly returns `path`.
+#' @rdname read_study
 #' @export
 write_study <- function(study, path) {
   if (!inherits(study, "rsemflow_study")) {
@@ -187,9 +221,21 @@ write_study <- function(study, path) {
       format_version = study$format_version,
       created_at = study$created_at,
       samples = length(study$sample_ids),
-      genes = nrow(study$txi$counts)
+      genes = nrow(study$txi$counts),
+      zero_effective_length_values = sum(study$txi$length <= 0, na.rm = TRUE)
     ),
     file.path(path, "study-info.tsv")
   )
   invisible(path)
+}
+
+#' @export
+print.rsemflow_study <- function(x, ...) {
+  md_cols <- setdiff(names(x$metadata), "sample_id")
+  cat("<rsemflow_study>\n")
+  cat(sprintf("  samples:  %d\n", length(x$sample_ids)))
+  cat(sprintf("  genes:    %d\n", nrow(x$txi$counts)))
+  cat(sprintf("  metadata: %s\n", if (length(md_cols)) paste(md_cols, collapse = ", ") else "(none)"))
+  cat(sprintf("  created:  %s (rsemflow %s)\n", x$created_at, x$rsemflow_version))
+  invisible(x)
 }

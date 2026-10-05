@@ -1,7 +1,16 @@
 #' Summarize expression-level QC statistics
 #'
+#' Sample- and gene-level summaries computed from the RSEM expected counts and
+#' TPM. A gene is "detected" when its expected count is above zero. These are
+#' descriptive numbers only; no sample is flagged or removed.
+#'
 #' @param study A `rsemflow_study` or path to a study.
 #' @return A list with `samples` and `genes` data frames.
+#' @examples
+#' ex <- system.file("extdata", "example", package = "rsemflow")
+#' study <- read_rsem_study(file.path(ex, "data"), file.path(ex, "metadata.tsv"))
+#' s <- summarize_study(study)
+#' s$samples
 #' @export
 summarize_study <- function(study) {
   if (is.character(study)) study <- read_study(study)

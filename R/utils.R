@@ -10,6 +10,13 @@
   warning(sprintf(fmt, ...), call. = FALSE)
 }
 
+# Bioconductor functions print progress messages ("reading in files",
+# "using counts and average transcript lengths") that clutter CLI output.
+# Warnings and errors are still propagated.
+.quietly <- function(expr) {
+  suppressMessages(expr)
+}
+
 .ensure_dir <- function(path) {
   if (!dir.exists(path)) {
     ok <- dir.create(path, recursive = TRUE, showWarnings = FALSE)
@@ -32,16 +39,23 @@
   invisible(path)
 }
 
-.read_table_auto <- function(path) {
+.read_table_auto <- function(path, character_cols = NULL) {
   if (!file.exists(path)) {
     .stopf("File does not exist: %s", path)
   }
   ext <- tolower(tools::file_ext(path))
   sep <- if (ext == "csv") "," else "\t"
+  if (length(character_cols)) {
+    header <- names(data.table::fread(path, sep = sep, nrows = 0L, check.names = FALSE))
+    character_cols <- intersect(character_cols, header)
+  }
   out <- data.table::fread(
     path,
     sep = sep,
     header = TRUE,
+    colClasses = if (length(character_cols)) list(character = character_cols),
+    encoding = "UTF-8",
+    showProgress = FALSE,
     data.table = FALSE,
     check.names = FALSE,
     na.strings = c("", "NA", "N/A", "NaN")
@@ -63,8 +77,11 @@
   out
 }
 
+# Only Ensembl gene IDs lose their version suffix. Other identifiers (GENCODE
+# `_PAR_Y` IDs, or names such as `Y_RNA.1`) are kept unchanged so that
+# unrelated rows are never merged.
 .strip_ensembl_version <- function(x) {
-  sub("\\.[0-9]+$", "", as.character(x))
+  sub("^(ENS[A-Z]*G[0-9]+)\\.[0-9]+$", "\\1", as.character(x))
 }
 
 .looks_like_ensembl <- function(x) {
@@ -119,6 +136,7 @@
     .resolve_species(species),
     human = "HS",
     mouse = "MM",
+    # MSigDB has no native rat database; msigdbr maps human sets to rat orthologs.
     rat = "HS"
   )
 }

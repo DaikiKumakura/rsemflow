@@ -2,54 +2,59 @@
   md <- if (is.null(metadata)) {
     study$metadata
   } else if (is.character(metadata) && length(metadata) == 1L) {
-    x <- .read_metadata(metadata)
-    x <- x[match(study$sample_ids, x$sample_id), , drop = FALSE]
-    if (anyNA(x$sample_id)) {
-      .stopf("Metadata override does not contain all study samples.")
-    }
-    x
+    .read_metadata(metadata)
   } else if (is.data.frame(metadata)) {
     metadata
   } else {
     .stopf("metadata must be NULL, a metadata file path, or a data.frame.")
   }
-
-  md <- .coerce_metadata(md, categorical = categorical, numeric = numeric)
-  if (!all(study$sample_ids %in% md$sample_id)) {
-    .stopf("Metadata is missing one or more samples from the study.")
+  if (!"sample_id" %in% names(md)) {
+    .stopf("Metadata must contain a column named 'sample_id'.")
   }
+  md$sample_id <- as.character(md$sample_id)
+  missing <- setdiff(study$sample_ids, md$sample_id)
+  if (length(missing)) {
+    .stopf("Metadata is missing study samples: %s", paste(missing, collapse = ", "))
+  }
+
   md <- md[match(study$sample_ids, md$sample_id), , drop = FALSE]
+  md <- .coerce_metadata(md, categorical = categorical, numeric = numeric)
   rownames(md) <- md$sample_id
   .apply_reference_levels(md, reference)
 }
 
-.find_numeric_coefficient <- function(dds, term) {
-  rn <- DESeq2::resultsNames(dds)
-  if (term %in% rn) return(term)
-  exact <- rn[grepl(paste0("(^|_)", gsub("([.])", "\\\\\\1", term), "($|_)"), rn)]
-  exact <- exact[!grepl("Intercept", exact, ignore.case = TRUE)]
-  if (length(exact) == 1L) return(exact)
-  .stopf(
-    "Could not identify a unique DESeq2 coefficient for numeric term '%s'. Available coefficients: %s",
-    term, paste(rn, collapse = ", ")
-  )
+.sorted_vars <- function(label) {
+  paste(sort(strsplit(label, ":", fixed = TRUE)[[1]]), collapse = ":")
 }
 
-.interaction_coefficients <- function(dds, term) {
-  vars <- strsplit(term, ":", fixed = TRUE)[[1]]
-  rn <- DESeq2::resultsNames(dds)
-  keep <- vapply(rn, function(nm) all(vapply(vars, function(v) grepl(v, nm, fixed = TRUE), logical(1))), logical(1))
-  hits <- rn[keep & !grepl("Intercept", rn, ignore.case = TRUE)]
-  if (!length(hits)) {
+# Model-matrix columns that belong to one formula term, named the way DESeq2
+# names its coefficients (make.names() of the model-matrix column names).
+.term_columns <- function(design_matrix, formula, term) {
+  labels <- attr(stats::terms(formula), "term.labels")
+  idx <- match(.sorted_vars(term), vapply(labels, .sorted_vars, character(1)))
+  if (is.na(idx)) {
     .stopf(
-      "No DESeq2 interaction coefficients matched term '%s'. Available coefficients: %s",
-      term, paste(rn, collapse = ", ")
+      "Term '%s' is not part of the formula. Formula terms: %s",
+      term, paste(labels, collapse = ", ")
     )
   }
-  hits
+  cols <- colnames(design_matrix)[attr(design_matrix, "assign") == idx]
+  make.names(cols)
 }
 
-.result_table <- function(res, gene_ids, term, contrast, coefficient = NA_character_, test = "Wald") {
+.require_coefficients <- function(dds, coefs, what) {
+  rn <- DESeq2::resultsNames(dds)
+  missing <- setdiff(coefs, rn)
+  if (length(missing)) {
+    .stopf(
+      "Could not find DESeq2 coefficient(s) %s for %s. Available coefficients: %s",
+      paste(missing, collapse = ", "), what, paste(rn, collapse = ", ")
+    )
+  }
+  coefs
+}
+
+.result_table <- function(res, term, contrast, coefficient = NA_character_, test = "Wald") {
   df <- as.data.frame(res)
   df$gene_id <- rownames(df)
   df$ensembl_gene_id <- .strip_ensembl_version(df$gene_id)
@@ -68,68 +73,131 @@
   list(variable = p[[1]], numerator = p[[2]], denominator = p[[3]])
 }
 
-.simple_effect_at <- function(dds, md, contrast_spec, at_spec) {
+.check_contrast_levels <- function(md, con) {
+  if (!con$variable %in% names(md)) {
+    .stopf("Contrast variable '%s' is not in metadata.", con$variable)
+  }
+  if (!is.factor(md[[con$variable]])) {
+    .stopf("Explicit contrasts require a categorical metadata variable: %s", con$variable)
+  }
+  lv <- levels(md[[con$variable]])
+  bad <- setdiff(c(con$numerator, con$denominator), lv)
+  if (length(bad)) {
+    .stopf(
+      "Unknown level(s) %s for '%s'. Levels: %s",
+      paste(bad, collapse = ", "), con$variable, paste(lv, collapse = ", ")
+    )
+  }
+  if (identical(con$numerator, con$denominator)) {
+    .stopf("Contrast numerator and denominator must differ: %s", con$variable)
+  }
+  invisible(TRUE)
+}
+
+# Simple effect of `var` (numerator vs reference) at one level of `at_var`:
+# main-effect coefficient + the matching interaction coefficient.
+.simple_effect_at <- function(dds, md, design_matrix, formula, contrast_spec, at_spec, alpha) {
   con <- .parse_contrast(contrast_spec)
   at <- .parse_double_colon(at_spec, 2L, "--p-at")
   at_var <- at[[1]]
   at_level <- at[[2]]
   var <- con$variable
 
-  if (!is.factor(md[[var]]) || !is.factor(md[[at_var]])) {
-    .stopf("--p-at currently requires categorical contrast and conditioning variables.")
+  .check_contrast_levels(md, con)
+  if (!at_var %in% names(md) || !is.factor(md[[at_var]])) {
+    .stopf("--p-at requires a categorical metadata variable: %s", at_var)
+  }
+  if (!at_level %in% levels(md[[at_var]])) {
+    .stopf(
+      "Unknown level '%s' for '%s'. Levels: %s",
+      at_level, at_var, paste(levels(md[[at_var]]), collapse = ", ")
+    )
   }
   ref_var <- levels(md[[var]])[[1]]
-  ref_at <- levels(md[[at_var]])[[1]]
   if (con$denominator != ref_var) {
     .stopf(
       "--p-at currently requires the contrast denominator to be the reference level '%s' for '%s'.",
       ref_var, var
     )
   }
-  if (!con$numerator %in% levels(md[[var]])) {
-    .stopf("Unknown level '%s' for '%s'.", con$numerator, var)
-  }
-  if (!at_level %in% levels(md[[at_var]])) {
-    .stopf("Unknown level '%s' for '%s'.", at_level, at_var)
+
+  main <- .require_coefficients(
+    dds,
+    make.names(sprintf("%s_%s_vs_%s", var, con$numerator, ref_var)),
+    sprintf("the main effect of '%s'", var)
+  )
+  if (at_level == levels(md[[at_var]])[[1]]) {
+    return(list(
+      res = DESeq2::results(dds, name = main, alpha = alpha),
+      coefficient = main
+    ))
   }
 
-  main_res <- DESeq2::results(dds, contrast = c(var, con$numerator, con$denominator))
-  if (at_level == ref_at) return(main_res)
-
-  rn <- DESeq2::resultsNames(dds)
-  candidates <- rn[
-    grepl(var, rn, fixed = TRUE) &
-      grepl(con$numerator, rn, fixed = TRUE) &
-      grepl(at_var, rn, fixed = TRUE) &
-      grepl(at_level, rn, fixed = TRUE)
-  ]
-  candidates <- candidates[!grepl("_vs_", candidates, fixed = TRUE)]
-  if (length(candidates) != 1L) {
+  interaction <- paste(var, at_var, sep = ":")
+  inter_cols <- .term_columns(design_matrix, formula, interaction)
+  wanted <- make.names(c(
+    paste0(var, con$numerator, ":", at_var, at_level),
+    paste0(at_var, at_level, ":", var, con$numerator)
+  ))
+  inter <- intersect(wanted, inter_cols)
+  if (length(inter) != 1L) {
     .stopf(
-      paste0(
-        "Could not identify a unique interaction coefficient for '%s at %s::%s'. ",
-        "Available coefficients: %s"
-      ),
-      contrast_spec, at_var, at_level, paste(rn, collapse = ", ")
+      "Could not identify the interaction coefficient for '%s' at %s::%s.",
+      contrast_spec, at_var, at_level
     )
   }
+  .require_coefficients(dds, inter, sprintf("the interaction '%s'", interaction))
+  list(
+    res = DESeq2::results(dds, contrast = list(c(main, inter)), alpha = alpha),
+    coefficient = paste(main, inter, sep = "+")
+  )
+}
 
-  main_candidates <- rn[
-    grepl(var, rn, fixed = TRUE) &
-      grepl(con$numerator, rn, fixed = TRUE) &
-      grepl("_vs_", rn, fixed = TRUE)
-  ]
-  if (length(main_candidates) != 1L) {
-    .stopf(
-      "Could not identify the main-effect coefficient for '%s'. Available coefficients: %s",
-      contrast_spec, paste(rn, collapse = ", ")
-    )
-  }
+.interacting_terms <- function(formula, var) {
+  labels <- attr(stats::terms(formula), "term.labels")
+  labels[grepl(":", labels, fixed = TRUE) &
+    vapply(strsplit(labels, ":", fixed = TRUE), function(v) var %in% v, logical(1))]
+}
 
-  DESeq2::results(dds, contrast = list(c(main_candidates[[1]], candidates[[1]])))
+.manifest_row <- function(name, term, contrast, coefficient) {
+  data.frame(
+    name = name, term = term, contrast = contrast, coefficient = coefficient,
+    stringsAsFactors = FALSE
+  )
+}
+
+.differential_output <- function(dds, md, formula, reduced, test, alpha, design_matrix, manifest, tables) {
+  list(
+    dds = dds,
+    metadata = md,
+    formula = formula,
+    reduced = reduced,
+    test = test,
+    alpha = alpha,
+    design_matrix = design_matrix,
+    manifest = manifest,
+    results = tables
+  )
 }
 
 #' Run metadata-driven DESeq2 differential expression
+#'
+#' Fits a DESeq2 model from the tximport-derived counts of a study and returns
+#' one result table per comparison.
+#'
+#' Which tables are produced depends on `term`:
+#'
+#' * a categorical variable: every level versus the reference level;
+#' * a numeric variable: the per-unit coefficient;
+#' * an interaction such as `genotype:treatment`: every interaction coefficient.
+#'
+#' Extra comparisons can be requested with `contrast`. With `at`, a single
+#' simple effect is returned instead (for example the treatment effect within
+#' one genotype in a `~ genotype * treatment` model). With `test = "lrt"`, one
+#' omnibus table is returned and `log2FoldChange`/`lfcSE` are set to `NA`
+#' because the likelihood-ratio test has no single direction.
+#'
+#' Log fold changes are not shrunk.
 #'
 #' @param study A `rsemflow_study` or study path.
 #' @param formula R formula or formula string.
@@ -144,8 +212,21 @@
 #' @param categorical Metadata columns to force categorical.
 #' @param numeric Metadata columns to force numeric.
 #' @param alpha Significance threshold passed to DESeq2 results.
-#' @return A list with DESeq2 object, design matrix, contrast manifest, and
-#'   named result tables.
+#' @return A list with the fitted `DESeqDataSet` (`dds`), the metadata used,
+#'   the formula(s), the design matrix, a contrast manifest, and the named
+#'   result tables (`results`).
+#' @examples
+#' \donttest{
+#' ex <- system.file("extdata", "example", package = "rsemflow")
+#' study <- read_rsem_study(file.path(ex, "data"), file.path(ex, "metadata.tsv"))
+#' de <- differential_deseq2(
+#'   study,
+#'   formula = ~ batch + condition,
+#'   term = "condition",
+#'   reference = "condition::Control"
+#' )
+#' head(de$results$condition_Drug_vs_Control)
+#' }
 #' @export
 differential_deseq2 <- function(
     study,
@@ -160,15 +241,19 @@ differential_deseq2 <- function(
     categorical = character(),
     numeric = character(),
     alpha = 0.05) {
-
   if (is.character(study) && length(study) == 1L) study <- read_study(study)
-  test <- match.arg(tolower(test), c("wald", "lrt"))
+  test <- match.arg(tolower(test[[1]]), c("wald", "lrt"))
   if (missing(formula) || is.null(formula)) .stopf("formula is required.")
-  if (missing(term) || !nzchar(term)) .stopf("term is required.")
+  if (missing(term) || length(term) != 1L || !nzchar(term)) .stopf("term is required.")
+  alpha <- as.numeric(alpha)
+  if (length(alpha) != 1L || is.na(alpha) || alpha <= 0 || alpha >= 1) {
+    .stopf("alpha must be a single number between 0 and 1.")
+  }
 
   f <- if (inherits(formula, "formula")) formula else stats::as.formula(as.character(formula))
   md <- .prepare_deseq_metadata(
-    study, metadata = metadata, categorical = categorical,
+    study,
+    metadata = metadata, categorical = categorical,
     numeric = numeric, reference = reference
   )
   .validate_formula_metadata(md, f)
@@ -179,50 +264,47 @@ differential_deseq2 <- function(
   if (length(missing_term)) {
     .stopf("Term refers to unknown metadata columns: %s", paste(missing_term, collapse = ", "))
   }
+  missing_in_formula <- setdiff(term_vars, all.vars(f))
+  if (length(missing_in_formula)) {
+    .stopf("Term variable(s) not used in the formula: %s", paste(missing_in_formula, collapse = ", "))
+  }
 
-  dds <- DESeq2::DESeqDataSetFromTximport(study$txi, colData = md, design = f)
-
+  dds <- .deseq_dataset(study, md, f)
   tables <- list()
-  manifest <- data.frame(
-    name = character(),
-    term = character(),
-    contrast = character(),
-    coefficient = character(),
-    stringsAsFactors = FALSE
-  )
+  manifest <- .manifest_row(character(), character(), character(), character())
 
   if (test == "lrt") {
-    if (is.null(reduced) || !length(reduced)) {
+    if (is.null(reduced) || !length(reduced) || !nzchar(reduced[[1]])) {
       .stopf("--p-reduced is required when --p-test lrt is used.")
     }
     rf <- if (inherits(reduced, "formula")) reduced else stats::as.formula(as.character(reduced))
     .validate_formula_metadata(md, rf)
     .validate_design_matrix(md, rf)
+    full_labels <- vapply(attr(stats::terms(f), "term.labels"), .sorted_vars, character(1))
+    reduced_labels <- vapply(attr(stats::terms(rf), "term.labels"), .sorted_vars, character(1))
+    if (length(setdiff(reduced_labels, full_labels))) {
+      .stopf("The reduced formula must be nested in the full formula.")
+    }
+    dropped <- setdiff(full_labels, reduced_labels)
+    if (!.sorted_vars(term) %in% dropped) {
+      .stopf(
+        "Term '%s' must be removed in the reduced formula. Terms removed: %s",
+        term, if (length(dropped)) paste(dropped, collapse = ", ") else "(none)"
+      )
+    }
 
-    dds <- DESeq2::DESeq(dds, test = "LRT", reduced = rf, quiet = TRUE)
+    dds <- .quietly(DESeq2::DESeq(dds, test = "LRT", reduced = rf, quiet = TRUE))
     res <- DESeq2::results(dds, alpha = alpha)
     nm <- paste0(.safe_name(term), "_omnibus")
-    lrt_tab <- .result_table(res, rownames(dds), term, "omnibus", NA_character_, test = "LRT")
-    if ("log2FoldChange" %in% names(lrt_tab)) lrt_tab$log2FoldChange <- NA_real_
-    if ("lfcSE" %in% names(lrt_tab)) lrt_tab$lfcSE <- NA_real_
+    lrt_tab <- .result_table(res, term, "omnibus", NA_character_, test = "LRT")
+    lrt_tab$log2FoldChange <- NA_real_
+    lrt_tab$lfcSE <- NA_real_
     tables[[nm]] <- lrt_tab
-    manifest <- rbind(
-      manifest,
-      data.frame(name = nm, term = term, contrast = "omnibus", coefficient = NA_character_, stringsAsFactors = FALSE)
-    )
-    return(list(
-      dds = dds,
-      metadata = md,
-      formula = f,
-      reduced = rf,
-      test = test,
-      design_matrix = design_matrix,
-      manifest = manifest,
-      results = tables
-    ))
+    manifest <- .manifest_row(nm, term, "omnibus", NA_character_)
+    return(.differential_output(dds, md, f, rf, test, alpha, design_matrix, manifest, tables))
   }
 
-  dds <- DESeq2::DESeq(dds, test = "Wald", quiet = TRUE)
+  dds <- .quietly(DESeq2::DESeq(dds, test = "Wald", quiet = TRUE))
 
   # Optional conditional simple effect. Kept intentionally narrow and explicit.
   if (length(at)) {
@@ -231,111 +313,87 @@ differential_deseq2 <- function(
     }
     con <- .parse_contrast(contrast[[1]])
     atp <- .parse_double_colon(at[[1]], 2L, "--p-at")
-    res <- .simple_effect_at(dds, md, contrast[[1]], at[[1]])
-    label <- sprintf(
+    eff <- .simple_effect_at(dds, md, design_matrix, f, contrast[[1]], at[[1]], alpha)
+    nm <- .safe_name(sprintf(
       "%s_%s_vs_%s_at_%s_%s",
       con$variable, con$numerator, con$denominator, atp[[1]], atp[[2]]
-    )
-    nm <- .safe_name(label)
-    tables[[nm]] <- .result_table(
-      res, rownames(dds), term,
-      sprintf("%s vs %s at %s=%s", con$numerator, con$denominator, atp[[1]], atp[[2]]),
-      NA_character_
-    )
-    manifest <- rbind(
-      manifest,
-      data.frame(
-        name = nm, term = term,
-        contrast = sprintf("%s::%s::%s @ %s::%s", con$variable, con$numerator, con$denominator, atp[[1]], atp[[2]]),
-        coefficient = NA_character_,
-        stringsAsFactors = FALSE
-      )
-    )
-    return(list(
-      dds = dds,
-      metadata = md,
-      formula = f,
-      reduced = NULL,
-      test = test,
-      design_matrix = design_matrix,
-      manifest = manifest,
-      results = tables
     ))
+    tables[[nm]] <- .result_table(
+      eff$res, term,
+      sprintf("%s vs %s at %s=%s", con$numerator, con$denominator, atp[[1]], atp[[2]]),
+      eff$coefficient
+    )
+    manifest <- .manifest_row(
+      nm, term,
+      sprintf("%s::%s::%s @ %s::%s", con$variable, con$numerator, con$denominator, atp[[1]], atp[[2]]),
+      eff$coefficient
+    )
+    return(.differential_output(dds, md, f, NULL, test, alpha, design_matrix, manifest, tables))
   }
 
-  if (grepl(":", term, fixed = TRUE)) {
-    coeffs <- .interaction_coefficients(dds, term)
+  if (length(term_vars) > 1L) {
+    coeffs <- .require_coefficients(
+      dds, .term_columns(design_matrix, f, term), sprintf("term '%s'", term)
+    )
     for (coef in coeffs) {
       res <- DESeq2::results(dds, name = coef, alpha = alpha)
       nm <- .safe_name(coef)
-      tables[[nm]] <- .result_table(res, rownames(dds), term, coef, coef)
-      manifest <- rbind(
-        manifest,
-        data.frame(name = nm, term = term, contrast = coef, coefficient = coef, stringsAsFactors = FALSE)
-      )
+      tables[[nm]] <- .result_table(res, term, coef, coef)
+      manifest <- rbind(manifest, .manifest_row(nm, term, coef, coef))
     }
   } else if (is.factor(md[[term]])) {
+    interacting <- .interacting_terms(f, term)
+    if (length(interacting)) {
+      others <- setdiff(unlist(strsplit(interacting, ":", fixed = TRUE)), term)
+      .warnf(
+        paste0(
+          "'%s' interacts with %s in the formula, so the '%s' comparisons are ",
+          "simple effects at the reference level(s) of %s. Use --p-at for other levels."
+        ),
+        term, paste(unique(others), collapse = ", "), term,
+        paste(sprintf("%s (%s)", unique(others), vapply(unique(others), function(v) {
+          if (is.factor(md[[v]])) levels(md[[v]])[[1]] else "0"
+        }, character(1))), collapse = ", ")
+      )
+    }
     lv <- levels(md[[term]])
     ref <- lv[[1]]
     for (level in setdiff(lv, ref)) {
       res <- DESeq2::results(dds, contrast = c(term, level, ref), alpha = alpha)
-      label <- sprintf("%s_%s_vs_%s", term, level, ref)
-      nm <- .safe_name(label)
-      tables[[nm]] <- .result_table(
-        res, rownames(dds), term, sprintf("%s vs %s", level, ref), NA_character_
-      )
+      nm <- .safe_name(sprintf("%s_%s_vs_%s", term, level, ref))
+      tables[[nm]] <- .result_table(res, term, sprintf("%s vs %s", level, ref), NA_character_)
       manifest <- rbind(
         manifest,
-        data.frame(name = nm, term = term, contrast = sprintf("%s::%s::%s", term, level, ref), coefficient = NA_character_, stringsAsFactors = FALSE)
+        .manifest_row(nm, term, sprintf("%s::%s::%s", term, level, ref), NA_character_)
       )
     }
   } else {
-    coef <- .find_numeric_coefficient(dds, term)
+    coef <- .require_coefficients(
+      dds, .term_columns(design_matrix, f, term), sprintf("numeric term '%s'", term)
+    )
     res <- DESeq2::results(dds, name = coef, alpha = alpha)
     nm <- .safe_name(term)
-    tables[[nm]] <- .result_table(res, rownames(dds), term, "per_unit", coef)
-    manifest <- rbind(
-      manifest,
-      data.frame(name = nm, term = term, contrast = "per_unit", coefficient = coef, stringsAsFactors = FALSE)
+    tables[[nm]] <- .result_table(res, term, "per_unit", coef)
+    manifest <- rbind(manifest, .manifest_row(nm, term, "per_unit", coef))
+  }
+
+  for (spec in contrast) {
+    con <- .parse_contrast(spec)
+    .check_contrast_levels(md, con)
+    nm <- .safe_name(sprintf("%s_%s_vs_%s", con$variable, con$numerator, con$denominator))
+    if (nm %in% names(tables)) next
+    res <- DESeq2::results(
+      dds,
+      contrast = c(con$variable, con$numerator, con$denominator),
+      alpha = alpha
     )
+    tables[[nm]] <- .result_table(
+      res, con$variable,
+      sprintf("%s vs %s", con$numerator, con$denominator),
+      NA_character_
+    )
+    manifest <- rbind(manifest, .manifest_row(nm, con$variable, spec, NA_character_))
   }
 
-  if (length(contrast)) {
-    for (spec in contrast) {
-      con <- .parse_contrast(spec)
-      if (!con$variable %in% names(md)) {
-        .stopf("Contrast variable '%s' is not in metadata.", con$variable)
-      }
-      if (!is.factor(md[[con$variable]])) {
-        .stopf("Explicit contrasts require a categorical metadata variable: %s", con$variable)
-      }
-      res <- DESeq2::results(
-        dds,
-        contrast = c(con$variable, con$numerator, con$denominator),
-        alpha = alpha
-      )
-      label <- sprintf("%s_%s_vs_%s", con$variable, con$numerator, con$denominator)
-      nm <- .safe_name(label)
-      tables[[nm]] <- .result_table(
-        res, rownames(dds), con$variable,
-        sprintf("%s vs %s", con$numerator, con$denominator),
-        NA_character_
-      )
-      manifest <- rbind(
-        manifest,
-        data.frame(name = nm, term = con$variable, contrast = spec, coefficient = NA_character_, stringsAsFactors = FALSE)
-      )
-    }
-  }
-
-  list(
-    dds = dds,
-    metadata = md,
-    formula = f,
-    reduced = NULL,
-    test = test,
-    design_matrix = design_matrix,
-    manifest = unique(manifest),
-    results = tables
-  )
+  .differential_output(dds, md, f, NULL, test, alpha, design_matrix, manifest, tables)
 }

@@ -1,13 +1,32 @@
+# RSEM reports effective_length = 0 for genes shorter than the fragment
+# length. DESeq2 rejects zero lengths in tximport input, so they are set to 1
+# as recommended in the DESeq2 vignette. Such genes have expected_count = 0,
+# so the offset value does not change any estimate. The study itself keeps the
+# original values.
+.txi_for_deseq2 <- function(txi) {
+  bad <- is.na(txi$length) | txi$length <= 0
+  if (any(bad)) txi$length[bad] <- 1
+  txi
+}
+
+.deseq_dataset <- function(study, col_data, design) {
+  .quietly(DESeq2::DESeqDataSetFromTximport(
+    .txi_for_deseq2(study$txi),
+    colData = col_data,
+    design = design
+  ))
+}
+
 .make_dds_for_transform <- function(study) {
-  md <- study$metadata
-  DESeq2::DESeqDataSetFromTximport(
-    study$txi,
-    colData = md,
-    design = stats::as.formula("~ 1")
-  )
+  .deseq_dataset(study, study$metadata, stats::as.formula("~ 1"))
 }
 
 #' Normalize or transform expression values
+#'
+#' * `vst`: DESeq2 size factors, then `varianceStabilizingTransformation(blind = TRUE)`.
+#' * `normalized-counts`: counts divided by DESeq2 size factors (with the
+#'   tximport average-length offsets).
+#' * `log2-tpm`: `log2(TPM + 1)`.
 #'
 #' @param study A `rsemflow_study` or study path.
 #' @param method One of `vst`, `normalized-counts`, or `log2-tpm`.
@@ -23,23 +42,35 @@ normalize_expression <- function(study, method = c("vst", "normalized-counts", "
   }
 
   dds <- .make_dds_for_transform(study)
-  dds <- DESeq2::estimateSizeFactors(dds)
+  dds <- .quietly(DESeq2::estimateSizeFactors(dds))
 
   if (method == "normalized-counts") {
     return(DESeq2::counts(dds, normalized = TRUE))
   }
 
-  vsd <- DESeq2::varianceStabilizingTransformation(dds, blind = TRUE)
+  vsd <- .quietly(DESeq2::varianceStabilizingTransformation(dds, blind = TRUE))
   SummarizedExperiment::assay(vsd)
 }
 
 #' Compute PCA tables from transformed expression
 #'
+#' Selects the `ntop` genes with the highest variance after transformation and
+#' runs [stats::prcomp()] with samples as observations, centering on, and no
+#' scaling.
+#'
 #' @param study A `rsemflow_study` or path.
 #' @param transform `vst` or `log2-tpm`.
 #' @param ntop Number of most variable genes to use.
 #' @param components Maximum number of PCs to return.
-#' @return A list containing `scores`, `loadings`, and `variance`.
+#' @return A list containing `scores`, `loadings`, and `variance` data
+#'   frames, plus the `transform` and the number of genes used (`ntop`).
+#' @examples
+#' \donttest{
+#' ex <- system.file("extdata", "example", package = "rsemflow")
+#' study <- read_rsem_study(file.path(ex, "data"), file.path(ex, "metadata.tsv"))
+#' p <- compute_pca(study, ntop = 100, components = 3)
+#' p$variance
+#' }
 #' @export
 compute_pca <- function(study, transform = c("vst", "log2-tpm"), ntop = 500L, components = 10L) {
   if (is.character(study)) study <- read_study(study)

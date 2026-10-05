@@ -12,6 +12,36 @@
   sort(stats, decreasing = TRUE)
 }
 
+.check_geneset_overlap <- function(sets, ids, what) {
+  universe <- unique(unlist(sets, use.names = FALSE))
+  n_hit <- sum(ids %in% universe)
+  if (!n_hit) {
+    .stopf(
+      paste0(
+        "None of the %d %s match a gene in the gene sets. Gene sets use stable ",
+        "Ensembl gene IDs (for example ENSG00000141510); check the species and ID type."
+      ),
+      length(ids), what
+    )
+  }
+  n_hit
+}
+
+# Runs `expr` with a fixed RNG seed and restores the caller's RNG state.
+.with_seed <- function(seed, expr) {
+  had_seed <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+  if (had_seed) old <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+  on.exit({
+    if (had_seed) {
+      assign(".Random.seed", old, envir = globalenv())
+    } else if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      rm(".Random.seed", envir = globalenv())
+    }
+  })
+  set.seed(seed)
+  expr
+}
+
 #' Run preranked GSEA
 #'
 #' @param differential Differential-expression table or path.
@@ -23,7 +53,21 @@
 #' @param min_size Minimum mapped gene-set size.
 #' @param max_size Maximum mapped gene-set size.
 #' @param eps Passed to `fgseaMultilevel`.
-#' @return A data frame of GSEA results.
+#' @param seed Random seed for `fgseaMultilevel`, which estimates p-values by
+#'   sampling. The same seed gives the same table.
+#' @return A data frame of GSEA results, sorted by `padj` and then by
+#'   decreasing `|NES|`.
+#' @details Gene IDs are matched to gene sets by stable Ensembl gene ID. When
+#'   several rows share a stable ID, the row with the largest absolute ranking
+#'   statistic is kept.
+#'
+#'   Unsigned statistics, such as the `stat` column of an LRT table, are
+#'   rejected because preranked GSEA needs a direction.
+#' @examples
+#' ids <- sprintf("ENSG%011d", 1:100)
+#' de <- data.frame(ensembl_gene_id = ids, stat = seq(5, -5, length.out = 100))
+#' sets <- list(UP = ids[1:20], DOWN = ids[81:100], MIXED = ids[seq(1, 100, 5)])
+#' run_gsea(de, genesets = sets, min_size = 10, max_size = 50)
 #' @export
 run_gsea <- function(
     differential,
@@ -34,7 +78,8 @@ run_gsea <- function(
     rank = "stat",
     min_size = 15L,
     max_size = 500L,
-    eps = 0) {
+    eps = 0,
+    seed = 42L) {
 
   de <- if (is.character(differential) && length(differential) == 1L) {
     .read_table_auto(differential)
@@ -64,13 +109,16 @@ run_gsea <- function(
     ids = names(stats_vec)
   )
 
-  res <- fgsea::fgseaMultilevel(
+  .check_geneset_overlap(gs$sets, names(stats_vec), "ranked genes")
+
+  res <- .with_seed(as.integer(seed), fgsea::fgseaMultilevel(
     pathways = gs$sets,
     stats = stats_vec,
     minSize = as.integer(min_size),
     maxSize = as.integer(max_size),
-    eps = as.numeric(eps)
-  )
+    eps = as.numeric(eps),
+    nproc = 1L
+  ))
   res <- as.data.frame(res, stringsAsFactors = FALSE)
   if ("leadingEdge" %in% names(res)) {
     res$leadingEdge <- vapply(res$leadingEdge, paste, collapse = ";", character(1))
@@ -86,6 +134,10 @@ run_gsea <- function(
 }
 
 #' Run GSVA or ssGSEA pathway scoring
+#'
+#' Scores each gene set in each sample from `log2(TPM + 1)`. Rows sharing a
+#' stable Ensembl ID are averaged first. GSVA uses a Gaussian kernel
+#' (`kcdf = "Gaussian"`). Scores are descriptive; no test between groups is run.
 #'
 #' @param study A `rsemflow_study` or study path.
 #' @param species `auto`, `human`, `mouse`, or `rat`.
@@ -121,6 +173,7 @@ run_gsva <- function(
     subcollection = subcollection,
     ids = rownames(expr)
   )
+  .check_geneset_overlap(gs$sets, rownames(expr), "expression rows")
 
   param <- if (method == "gsva") {
     GSVA::gsvaParam(

@@ -22,6 +22,11 @@
 
 #' Annotate Ensembl gene IDs using a local Bioconductor OrgDb
 #'
+#' Adds the stable Ensembl ID (version suffix removed), gene symbol, Entrez ID,
+#' and description from `org.Hs.eg.db`, `org.Mm.eg.db`, or `org.Rn.eg.db`. The
+#' original RSEM `gene_id` is always kept. When an Ensembl ID maps to several
+#' Entrez records, the record with the most filled fields is kept.
+#'
 #' @param study A `rsemflow_study` or study path.
 #' @param species `auto`, `human`, `mouse`, or `rat`.
 #' @return A gene annotation data frame.
@@ -49,12 +54,12 @@ annotate_ensembl <- function(study, species = "auto") {
     ))
   }
 
-  ann <- AnnotationDbi::select(
+  ann <- .quietly(AnnotationDbi::select(
     db,
     keys = keys,
     keytype = "ENSEMBL",
     columns = c("ENSEMBL", "SYMBOL", "ENTREZID", "GENENAME")
-  )
+  ))
   ann <- as.data.frame(ann, stringsAsFactors = FALSE)
 
   if (nrow(ann)) {
@@ -135,6 +140,10 @@ annotate_ensembl <- function(study, species = "auto") {
 }
 
 #' Annotate genes from a GTF file
+#'
+#' Reads the `gene` records of the GTF used to build the RSEM reference and
+#' returns `gene_name`, `gene_type`/`gene_biotype`, and `description`. IDs are
+#' matched on the full versioned ID first and on the stable Ensembl ID second.
 #'
 #' @param study A `rsemflow_study` or study path.
 #' @param gtf Path to a GTF or GTF.GZ file.
