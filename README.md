@@ -42,8 +42,8 @@ install.packages("BiocManager")
 BiocManager::install("DaikiKumakura/rsemflow")
 ```
 
-`BiocManager` resolves the Bioconductor dependencies. For rat annotation also
-run `BiocManager::install("org.Rn.eg.db")`.
+`BiocManager` resolves the Bioconductor dependencies. Human and mouse data are
+supported.
 
 ### From a source checkout (with the command-line launcher)
 
@@ -204,8 +204,7 @@ used), `contrasts.tsv` (one row per table, with the DESeq2 coefficient), and
 or a raw MSigDB code with `--p-subcollection` (for example
 `--p-collection C2 --p-subcollection CP:KEGG_MEDICUS`). Gene sets come from
 `msigdbr`. Human uses the human MSigDB; mouse uses the mouse MSigDB, where the
-aliases map to `MH`, `M2`, and `M5` (raw codes must be mouse codes); rat uses
-human sets mapped to rat orthologs. Use `--i-genesets file.gmt` for custom
+aliases map to `MH`, `M2`, and `M5` (raw codes must be mouse codes). Use `--i-genesets file.gmt` for custom
 sets.
 
 Genes are matched by stable Ensembl gene ID (`ENSG00000141510.18` →

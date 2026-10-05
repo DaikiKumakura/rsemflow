@@ -9,7 +9,9 @@ test_that("only Ensembl gene versions are stripped", {
 test_that("species are inferred from Ensembl prefixes", {
   expect_equal(rsemflow:::.resolve_species("auto", "ENSG00000141510.1"), "human")
   expect_equal(rsemflow:::.resolve_species("auto", "ENSMUSG00000059552"), "mouse")
-  expect_equal(rsemflow:::.resolve_species("Rattus norvegicus"), "rat")
+  expect_equal(rsemflow:::.resolve_species("Mus musculus"), "mouse")
+  expect_error(rsemflow:::.resolve_species("rat"), "Unsupported species")
+  expect_error(rsemflow:::.resolve_species("auto", "ENSRNOG00000000001"), "could not be inferred")
   expect_error(rsemflow:::.resolve_species("auto", "geneA"), "could not be inferred")
   expect_error(rsemflow:::.resolve_species("zebrafish"), "Unsupported species")
 })

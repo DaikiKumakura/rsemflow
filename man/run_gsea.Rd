@@ -20,7 +20,7 @@ run_gsea(
 \arguments{
 \item{differential}{Differential-expression table or path.}
 
-\item{species}{\code{auto}, \code{human}, \code{mouse}, or \code{rat}.}
+\item{species}{\code{auto}, \code{human}, or \code{mouse}.}
 
 \item{collection}{MSigDB collection alias or raw collection code.}
 

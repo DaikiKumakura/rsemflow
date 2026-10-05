@@ -95,8 +95,7 @@
   if (!length(ids)) return(NA_character_)
   props <- c(
     human = mean(grepl("^ENSG[0-9]+$", ids)),
-    mouse = mean(grepl("^ENSMUSG[0-9]+$", ids)),
-    rat = mean(grepl("^ENSRNOG[0-9]+$", ids))
+    mouse = mean(grepl("^ENSMUSG[0-9]+$", ids))
   )
   best <- names(which.max(props))
   if (max(props) < 0.5) NA_character_ else best
@@ -113,21 +112,19 @@
   }
   aliases <- list(
     human = c("human", "homo sapiens", "hs", "h.sapiens"),
-    mouse = c("mouse", "mus musculus", "mm", "m.musculus"),
-    rat = c("rat", "rattus norvegicus", "rn", "r.norvegicus")
+    mouse = c("mouse", "mus musculus", "mm", "m.musculus")
   )
   for (nm in names(aliases)) {
     if (species %in% aliases[[nm]]) return(nm)
   }
-  .stopf("Unsupported species '%s'. Supported values: auto, human, mouse, rat.", species)
+  .stopf("Unsupported species '%s'. Supported values: auto, human, mouse.", species)
 }
 
 .species_scientific <- function(species) {
   switch(
     .resolve_species(species),
     human = "Homo sapiens",
-    mouse = "Mus musculus",
-    rat = "Rattus norvegicus"
+    mouse = "Mus musculus"
   )
 }
 
@@ -135,9 +132,7 @@
   switch(
     .resolve_species(species),
     human = "HS",
-    mouse = "MM",
-    # MSigDB has no native rat database; msigdbr maps human sets to rat orthologs.
-    rat = "HS"
+    mouse = "MM"
   )
 }
 

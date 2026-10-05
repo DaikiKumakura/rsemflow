@@ -18,7 +18,7 @@ run_gsva(
 \arguments{
 \item{study}{A \code{rsemflow_study} or study path.}
 
-\item{species}{\code{auto}, \code{human}, \code{mouse}, or \code{rat}.}
+\item{species}{\code{auto}, \code{human}, or \code{mouse}.}
 
 \item{collection}{MSigDB collection alias or raw collection code.}
 

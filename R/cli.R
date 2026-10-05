@@ -21,7 +21,7 @@
       summary = "Map versioned Ensembl gene IDs to stable IDs and gene symbols using a local OrgDb.",
       options = list(
         "i-study" = c("required", "Input study directory or study.rds."),
-        "p-species" = c("default:auto", "auto, human, mouse, or rat."),
+        "p-species" = c("default:auto", "auto, human, or mouse."),
         "o-annotation" = c("required", "Output annotation TSV.")
       )
     ),
@@ -83,7 +83,7 @@
       options = list(
         "i-differential" = c("required", "Input differential-expression TSV."),
         "i-genesets" = c("optional", "Optional custom GMT file."),
-        "p-species" = c("default:auto", "auto, human, mouse, or rat."),
+        "p-species" = c("default:auto", "auto, human, or mouse."),
         "p-collection" = c("default:hallmark", "hallmark, reactome, go-bp, go-mf, go-cc, or MSigDB code."),
         "p-subcollection" = c("optional", "Raw MSigDB subcollection code."),
         "p-rank" = c("default:stat", "Differential table column used for ranking."),
@@ -99,7 +99,7 @@
       options = list(
         "i-study" = c("required", "Input study directory or study.rds."),
         "i-genesets" = c("optional", "Optional custom GMT file."),
-        "p-species" = c("default:auto", "auto, human, mouse, or rat."),
+        "p-species" = c("default:auto", "auto, human, or mouse."),
         "p-collection" = c("default:hallmark", "hallmark, reactome, go-bp, go-mf, go-cc, or MSigDB code."),
         "p-subcollection" = c("optional", "Raw MSigDB subcollection code."),
         "p-method" = c("default:gsva", "gsva or ssgsea."),

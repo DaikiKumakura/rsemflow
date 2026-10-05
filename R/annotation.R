@@ -3,8 +3,7 @@
   switch(
     .resolve_species(species),
     human = "org.Hs.eg.db",
-    mouse = "org.Mm.eg.db",
-    rat = "org.Rn.eg.db"
+    mouse = "org.Mm.eg.db"
   )
 }
 
@@ -23,12 +22,12 @@
 #' Annotate Ensembl gene IDs using a local Bioconductor OrgDb
 #'
 #' Adds the stable Ensembl ID (version suffix removed), gene symbol, Entrez ID,
-#' and description from `org.Hs.eg.db`, `org.Mm.eg.db`, or `org.Rn.eg.db`. The
+#' and description from `org.Hs.eg.db` or `org.Mm.eg.db`. The
 #' original RSEM `gene_id` is always kept. When an Ensembl ID maps to several
 #' Entrez records, the record with the most filled fields is kept.
 #'
 #' @param study A `rsemflow_study` or study path.
-#' @param species `auto`, `human`, `mouse`, or `rat`.
+#' @param species `auto`, `human`, or `mouse`.
 #' @return A gene annotation data frame.
 #' @export
 annotate_ensembl <- function(study, species = "auto") {

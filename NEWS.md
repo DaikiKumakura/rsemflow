@@ -19,4 +19,5 @@ First public release.
   aliases) or custom GMT gene sets.
 * Genes with RSEM `effective_length = 0` are handled when building DESeq2
   objects.
+* Supports human and mouse data.
 * All results are TSV tables; no figures are produced.

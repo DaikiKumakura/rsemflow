@@ -45,7 +45,7 @@
 #' Run preranked GSEA
 #'
 #' @param differential Differential-expression table or path.
-#' @param species `auto`, `human`, `mouse`, or `rat`.
+#' @param species `auto`, `human`, or `mouse`.
 #' @param collection MSigDB collection alias or raw collection code.
 #' @param subcollection Optional MSigDB subcollection.
 #' @param genesets Optional named gene-set list or GMT path.
@@ -140,7 +140,7 @@ run_gsea <- function(
 #' (`kcdf = "Gaussian"`). Scores are descriptive; no test between groups is run.
 #'
 #' @param study A `rsemflow_study` or study path.
-#' @param species `auto`, `human`, `mouse`, or `rat`.
+#' @param species `auto`, `human`, or `mouse`.
 #' @param collection MSigDB collection alias or raw collection code.
 #' @param subcollection Optional MSigDB subcollection.
 #' @param genesets Optional named list or GMT file.

@@ -9,14 +9,14 @@ annotate_ensembl(study, species = "auto")
 \arguments{
 \item{study}{A \code{rsemflow_study} or study path.}
 
-\item{species}{\code{auto}, \code{human}, \code{mouse}, or \code{rat}.}
+\item{species}{\code{auto}, \code{human}, or \code{mouse}.}
 }
 \value{
 A gene annotation data frame.
 }
 \description{
 Adds the stable Ensembl ID (version suffix removed), gene symbol, Entrez ID,
-and description from \code{org.Hs.eg.db}, \code{org.Mm.eg.db}, or \code{org.Rn.eg.db}. The
+and description from \code{org.Hs.eg.db} or \code{org.Mm.eg.db}. The
 original RSEM \code{gene_id} is always kept. When an Ensembl ID maps to several
 Entrez records, the record with the most filled fields is kept.
 }

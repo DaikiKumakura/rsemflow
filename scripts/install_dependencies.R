@@ -1,9 +1,6 @@
 # Install the CRAN and Bioconductor packages rsemflow needs.
 #
-#   Rscript scripts/install_dependencies.R          # human + mouse annotation
-#   Rscript scripts/install_dependencies.R --rat    # also org.Rn.eg.db
-
-args <- commandArgs(trailingOnly = TRUE)
+#   Rscript scripts/install_dependencies.R
 
 cran_repo <- getOption("repos")[["CRAN"]]
 if (is.null(cran_repo) || identical(cran_repo, "@CRAN@")) {
@@ -34,7 +31,6 @@ bioc <- c(
   "org.Hs.eg.db",
   "org.Mm.eg.db"
 )
-if ("--rat" %in% args) bioc <- c(bioc, "org.Rn.eg.db")
 missing_bioc <- bioc[!installed(bioc)]
 if (length(missing_bioc)) {
   BiocManager::install(missing_bioc, ask = FALSE, update = FALSE)
