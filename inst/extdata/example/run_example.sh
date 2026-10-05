@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
+# Run the basic rsemflow workflow on the bundled synthetic example.
+# Needs no annotation database or MSigDB download.
+#
+#   bash run_example.sh [output-directory]
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK="${1:-rsemflow-example-output}"
 
-rm -rf "$WORK"
+if [[ -e "$WORK" ]]; then
+  echo "ERROR: '$WORK' already exists; choose a new output directory." >&2
+  exit 1
+fi
 mkdir -p "$WORK"
 
 rsemflow data import \

@@ -1,4 +1,13 @@
-citHeader("RSEMflow coordinates established R/Bioconductor methods. Cite the methods used in your analysis:")
+citHeader("rsemflow coordinates established R/Bioconductor methods. Please cite the methods used in your analysis:")
+
+bibentry(
+  bibtype = "Manual",
+  title = "rsemflow: Metadata-Driven Downstream Analysis for RSEM Gene-Level Results",
+  author = person("Daiki", "Kumakura"),
+  year = "2026",
+  note = "R package version 0.1.0",
+  url = "https://github.com/DaikiKumakura/rsemflow"
+)
 
 bibentry(
   bibtype = "Article",
@@ -9,17 +18,6 @@ bibentry(
   volume = "12",
   pages = "323",
   doi = "10.1186/1471-2105-12-323"
-)
-
-bibentry(
-  bibtype = "Article",
-  title = "Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2",
-  author = c(person("Michael I.", "Love"), person("Wolfgang", "Huber"), person("Simon", "Anders")),
-  journal = "Genome Biology",
-  year = "2014",
-  volume = "15",
-  pages = "550",
-  doi = "10.1186/s13059-014-0550-8"
 )
 
 bibentry(
@@ -35,11 +33,60 @@ bibentry(
 
 bibentry(
   bibtype = "Article",
+  title = "Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2",
+  author = c(person("Michael I.", "Love"), person("Wolfgang", "Huber"), person("Simon", "Anders")),
+  journal = "Genome Biology",
+  year = "2014",
+  volume = "15",
+  pages = "550",
+  doi = "10.1186/s13059-014-0550-8"
+)
+
+bibentry(
+  bibtype = "Article",
+  title = "Gene set enrichment analysis: a knowledge-based approach for interpreting genome-wide expression profiles",
+  author = c(person("Aravind", "Subramanian"), person("Pablo", "Tamayo"), person("Vamsi K.", "Mootha"),
+             person("Sayan", "Mukherjee"), person("Benjamin L.", "Ebert"), person("Michael A.", "Gillette"),
+             person("Amanda", "Paulovich"), person("Scott L.", "Pomeroy"), person("Todd R.", "Golub"),
+             person("Eric S.", "Lander"), person("Jill P.", "Mesirov")),
+  journal = "Proceedings of the National Academy of Sciences",
+  year = "2005",
+  volume = "102",
+  number = "43",
+  pages = "15545--15550",
+  doi = "10.1073/pnas.0506580102"
+)
+
+bibentry(
+  bibtype = "Article",
+  title = "Fast gene set enrichment analysis",
+  author = c(person("Gennady", "Korotkevich"), person("Vladimir", "Sukhov"), person("Nikolay", "Budin"),
+             person("Boris", "Shpak"), person("Maxim N.", "Artyomov"), person("Alexey", "Sergushichev")),
+  journal = "bioRxiv",
+  year = "2021",
+  doi = "10.1101/060012"
+)
+
+bibentry(
+  bibtype = "Article",
   title = "GSVA: gene set variation analysis for microarray and RNA-seq data",
-  author = c(person("Sonja", "Hanzelmann"), person("Robert", "Castelo"), person("Justin", "Guinney")),
+  author = c(person("Sonja", "Hänzelmann"), person("Robert", "Castelo"), person("Justin", "Guinney")),
   journal = "BMC Bioinformatics",
   year = "2013",
   volume = "14",
   pages = "7",
   doi = "10.1186/1471-2105-14-7"
+)
+
+bibentry(
+  bibtype = "Article",
+  title = "The Molecular Signatures Database Hallmark Gene Set Collection",
+  author = c(person("Arthur", "Liberzon"), person("Chet", "Birger"), person("Helga", "Thorvaldsdóttir"),
+             person("Mahmoud", "Ghandi"), person("Jill P.", "Mesirov"), person("Pablo", "Tamayo")),
+  journal = "Cell Systems",
+  year = "2015",
+  volume = "1",
+  number = "6",
+  pages = "417--425",
+  doi = "10.1016/j.cels.2015.12.004"
 )

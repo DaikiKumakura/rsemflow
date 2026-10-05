@@ -1,6 +1,12 @@
 ^\.git$
 ^\.github$
-^rsemflow\.Rproj$
+^\.gitattributes$
+^.*\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^Makefile$
 ^install_local\.sh$
 ^scripts$
 ^\.DS_Store$
+^rsemflow\.Rcheck$
+^rsemflow_.*\.tar\.gz$
