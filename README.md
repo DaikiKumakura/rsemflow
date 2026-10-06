@@ -239,6 +239,15 @@ Those genes have zero counts; rsemflow keeps the original values in the study
 and replaces the zeros with 1 only when building the DESeq2 object, as the
 DESeq2 vignette recommends.
 
+## Validation
+
+Besides the unit tests, rsemflow is checked on real RSEM output from ENCODE
+(K562 cells, PTBP1 and SRSF1 shRNA knockdowns with a shared control; 59,526
+genes). Each knockdown target comes out among the most significant decreases
+in its own knockdown and nearly unchanged in the other. The script downloads
+the data, runs the workflow, and checks the results; see
+[`validation/encode-k562-knockdown/`](validation/encode-k562-knockdown/).
+
 ## Using rsemflow from R
 
 Every CLI action calls an exported R function:

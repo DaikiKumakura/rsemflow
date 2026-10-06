@@ -5,7 +5,7 @@ bibentry(
   title = "rsemflow: Metadata-Driven Downstream Analysis for RSEM Gene-Level Results",
   author = person("Daiki", "Kumakura"),
   year = "2026",
-  note = "R package version 0.1.0",
+  note = "R package version 0.1.1",
   url = "https://github.com/DaikiKumakura/rsemflow"
 )
 

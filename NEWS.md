@@ -1,3 +1,19 @@
+# rsemflow 0.1.1
+
+Fixes found by running rsemflow on real ENCODE RSEM output
+(`validation/encode-k562-knockdown/`).
+
+* `annotation ensembl`: genes are `mapped` only when the OrgDb returned a
+  symbol, Entrez ID, or description. Previously, Ensembl IDs absent from the
+  OrgDb were also reported as `mapped` (22,350 of 59,526 genes in the
+  validation data).
+* `enrichment gsea` runs serially without a progress bar. On Windows it
+  previously printed a progress bar and started a worker process. Results are
+  unchanged.
+* `annotation ensembl` no longer prints an empty line when loading the OrgDb.
+* Added a reproducible real-data validation on ENCODE K562 PTBP1 and SRSF1
+  knockdowns.
+
 # rsemflow 0.1.0
 
 First public release.
