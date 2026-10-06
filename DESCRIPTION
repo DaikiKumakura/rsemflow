@@ -1,7 +1,7 @@
 Package: rsemflow
 Type: Package
 Title: Metadata-Driven Downstream Analysis for RSEM Gene-Level Results
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: person("Daiki", "Kumakura", role = c("aut", "cre"),
     email = "55353329+DaikiKumakura@users.noreply.github.com")
 Description: A command-line and R interface for reproducible downstream
@@ -24,6 +24,7 @@ Depends:
     R (>= 4.3.0)
 Imports:
     AnnotationDbi,
+    BiocParallel,
     DESeq2,
     GSVA (>= 2.0.0),
     SummarizedExperiment,

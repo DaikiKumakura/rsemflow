@@ -10,13 +10,13 @@
 .orgdb_for_species <- function(species) {
   species <- .resolve_species(species)
   pkg <- .orgdb_package_for_species(species)
-  if (!requireNamespace(pkg, quietly = TRUE)) {
+  if (!.quietly(requireNamespace(pkg, quietly = TRUE))) {
     .stopf(
       "Annotation package '%s' is not installed. Install it with BiocManager::install('%s').",
       pkg, pkg
     )
   }
-  getExportedValue(pkg, pkg)
+  .quietly(getExportedValue(pkg, pkg))
 }
 
 #' Annotate Ensembl gene IDs using a local Bioconductor OrgDb
@@ -25,6 +25,9 @@
 #' and description from `org.Hs.eg.db` or `org.Mm.eg.db`. The
 #' original RSEM `gene_id` is always kept. When an Ensembl ID maps to several
 #' Entrez records, the record with the most filled fields is kept.
+#' `annotation_status` is `mapped` when the OrgDb returned at least one of the
+#' symbol, Entrez ID, or description, and `unmapped` otherwise (including
+#' non-Ensembl IDs such as spike-ins).
 #'
 #' @param study A `rsemflow_study` or study path.
 #' @param species `auto`, `human`, or `mouse`.
@@ -72,7 +75,10 @@ annotate_ensembl <- function(study, species = "auto") {
   symbol <- ann$SYMBOL[idx]
   entrez <- ann$ENTREZID[idx]
   description <- ann$GENENAME[idx]
-  status <- ifelse(is.na(idx), "unmapped", "mapped")
+  # select() returns a row of NAs for keys absent from the OrgDb, so a gene
+  # counts as mapped only when some annotation field was found.
+  found <- !is.na(symbol) | !is.na(entrez) | !is.na(description)
+  status <- ifelse(found, "mapped", "unmapped")
 
   data.frame(
     gene_id = gene_id,

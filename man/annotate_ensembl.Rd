@@ -19,4 +19,7 @@ Adds the stable Ensembl ID (version suffix removed), gene symbol, Entrez ID,
 and description from \code{org.Hs.eg.db} or \code{org.Mm.eg.db}. The
 original RSEM \code{gene_id} is always kept. When an Ensembl ID maps to several
 Entrez records, the record with the most filled fields is kept.
+\code{annotation_status} is \code{mapped} when the OrgDb returned at least one of the
+symbol, Entrez ID, or description, and \code{unmapped} otherwise (including
+non-Ensembl IDs such as spike-ins).
 }

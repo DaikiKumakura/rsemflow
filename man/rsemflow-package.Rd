@@ -19,6 +19,7 @@ output is a tab-separated table for use in any downstream tool.
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://daikikumakura.github.io/rsemflow/}
   \item \url{https://github.com/DaikiKumakura/rsemflow}
   \item Report bugs at \url{https://github.com/DaikiKumakura/rsemflow/issues}
 }

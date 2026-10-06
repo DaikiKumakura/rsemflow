@@ -24,6 +24,9 @@ test_that("OrgDb annotation keeps the original gene IDs", {
   ann <- annotate_ensembl(study, species = "human")
   expect_equal(ann$gene_id, rownames(study$txi$counts))
   expect_equal(ann$ensembl_gene_id, rsemflow:::.strip_ensembl_version(ann$gene_id))
-  expect_true(all(ann$annotation_status %in% c("mapped", "unmapped")))
+  has_info <- !is.na(ann$gene_symbol) | !is.na(ann$entrez_gene_id) | !is.na(ann$gene_description)
+  expect_equal(ann$annotation_status == "mapped", has_info)
+  # The synthetic IDs include ones that do not exist in Ensembl.
+  expect_true(any(ann$annotation_status == "unmapped"))
   expect_equal(unique(ann$annotation_source), "org.Hs.eg.db")
 })

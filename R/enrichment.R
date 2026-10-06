@@ -117,7 +117,9 @@ run_gsea <- function(
     minSize = as.integer(min_size),
     maxSize = as.integer(max_size),
     eps = as.numeric(eps),
-    nproc = 1L
+    # Serial and without a progress bar: fgsea's own nproc = 1 switches to a
+    # SnowParam worker with a progress bar on Windows.
+    BPPARAM = BiocParallel::SerialParam(progressbar = FALSE)
   ))
   res <- as.data.frame(res, stringsAsFactors = FALSE)
   if ("leadingEdge" %in% names(res)) {

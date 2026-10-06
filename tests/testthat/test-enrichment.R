@@ -20,6 +20,12 @@ test_that("GSEA accepts custom gene sets and finds the simulated direction", {
   expect_equal(unique(res$collection), "custom")
 })
 
+test_that("GSEA prints nothing to standard output", {
+  de <- ranked_table()
+  gs <- list(TOP = de$ensembl_gene_id[1:20], BOTTOM = de$ensembl_gene_id[81:100])
+  expect_length(utils::capture.output(res <- run_gsea(de, genesets = gs, min_size = 10)), 0L)
+})
+
 test_that("GSEA is reproducible with a fixed seed", {
   de <- ranked_table()
   gs <- list(A = de$ensembl_gene_id[seq(1, 100, 3)], B = de$ensembl_gene_id[seq(2, 100, 4)])
