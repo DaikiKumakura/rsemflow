@@ -298,3 +298,7 @@ rsemflow only coordinates other methods; please cite those you use
 ## License
 
 MIT © Daiki Kumakura
+
+## Related writing
+
+- [rsemflow on the author's site](https://daikikumakura.github.io/software/rsemflow.html): summary and installation (documentation: <https://daikikumakura.github.io/rsemflow/>).
