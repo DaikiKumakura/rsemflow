@@ -36,6 +36,41 @@ jobs:
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
         shell: Rscript {0}
 
+      - name: Set documentation canonicals and filter sitemap
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
+          import re
+
+          docs = Path('docs')
+          sitemap = docs / 'sitemap.xml'
+          namespace = 'http://www.sitemaps.org/schemas/sitemap/0.9'
+          ET.register_namespace('', namespace)
+          tree = ET.parse(sitemap)
+          root = tree.getroot()
+          for entry in list(root):
+              loc = entry.find(f'{{{namespace}}}loc')
+              url = loc.text
+              if url.endswith('/404.html'):
+                  root.remove(entry)
+                  continue
+              base = 'https://daikikumakura.github.io/rsemflow/'
+              relative = url.removeprefix(base)
+              if relative == url:
+                  raise ValueError(f'Unexpected documentation URL: {url}')
+              page = docs / (relative + 'index.html' if not relative or relative.endswith('/') else relative)
+              canonical = url.removesuffix('index.html') if url.endswith('/index.html') else url
+              loc.text = canonical
+              source = page.read_text(encoding='utf-8')
+              if not re.search(r'<link\b[^>]*\brel=["\']canonical["\']', source, re.I):
+                  source, count = re.subn(r'</head>', f'<link rel="canonical" href="{canonical}">\n</head>', source, count=1, flags=re.I)
+                  if count != 1:
+                      raise ValueError(f'Missing head in {page}')
+                  page.write_text(source, encoding='utf-8')
+          tree.write(sitemap, encoding='utf-8', xml_declaration=True)
+          PY
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
