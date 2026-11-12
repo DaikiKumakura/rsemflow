@@ -1,6 +1,7 @@
 # rsemflow
 
 <!-- badges: start -->
+[![R-universe](https://daikikumakura.r-universe.dev/badges/rsemflow)](https://daikikumakura.r-universe.dev/rsemflow)
 [![R-CMD-check](https://github.com/DaikiKumakura/rsemflow/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/DaikiKumakura/rsemflow/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
@@ -41,6 +42,16 @@ Two principles guide the design:
 ## Installation
 
 rsemflow needs R ≥ 4.3 and several Bioconductor packages.
+
+### From R-universe
+
+```r
+install.packages("BiocManager")
+install.packages("rsemflow", repos = c(
+  "https://daikikumakura.r-universe.dev",
+  BiocManager::repositories()
+))
+```
 
 ### From GitHub (R)
 
