@@ -3,6 +3,7 @@
 <!-- badges: start -->
 [![R-universe](https://daikikumakura.r-universe.dev/badges/rsemflow)](https://daikikumakura.r-universe.dev/rsemflow)
 [![R-CMD-check](https://github.com/DaikiKumakura/rsemflow/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/DaikiKumakura/rsemflow/actions/workflows/R-CMD-check.yaml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24210478.svg)](https://doi.org/10.5281/zenodo.24210478)
 <!-- badges: end -->
 
 **Documentation:** <https://daikikumakura.github.io/rsemflow/> ·
