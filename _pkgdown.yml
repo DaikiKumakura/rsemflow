@@ -4,7 +4,11 @@ template:
   bootstrap: 5
 
 home:
-  title: "rsemflow: downstream analysis for RSEM gene-level results"
+  title: "rsemflow: standard bulk RNA-seq results from RSEM files"
+  description: >-
+    Expression summaries, PCA, DESeq2, GSEA and GSVA as TSV tables from RSEM
+    gene results and a sample table, from the command line or from R, for
+    human and mouse.
 
 navbar:
   structure:
@@ -30,28 +34,37 @@ articles:
       - designs
 
 reference:
-  - title: Import and storage
+  - title: "1. Import"
+    desc: "Read RSEM files with the sample table, check them, and store the study."
     contents:
       - read_rsem_study
       - read_study
-      - summarize_study
-  - title: Expression
+  - title: "2. Summaries"
+    desc: "Total counts, detected genes and TPM quantiles per sample and per gene."
     contents:
-      - normalize_expression
+      - summarize_study
+  - title: "3. Sample structure and normalized values"
+    desc: "PCA, sample correlation, and VST, normalized counts or log2 TPM."
+    contents:
       - compute_pca
       - compute_correlation
-  - title: Differential expression
+      - normalize_expression
+  - title: "4. Differential expression"
+    desc: "DESeq2 for an explicitly stated design; one table per comparison."
     contents:
       - differential_deseq2
-  - title: Gene sets
+  - title: "5. Pathways"
+    desc: "Preranked GSEA and GSVA or ssGSEA scores with MSigDB or your own gene sets."
     contents:
       - run_gsea
       - run_gsva
-  - title: Annotation
+  - title: "6. Annotation"
+    desc: "Gene symbols and descriptions from the GTF or from the OrgDb."
     contents:
-      - annotate_ensembl
       - annotate_gtf
+      - annotate_ensembl
   - title: Command line
+    desc: "The rsemflow command; every action calls one of the functions above."
     contents:
       - cli_main
   - title: Package

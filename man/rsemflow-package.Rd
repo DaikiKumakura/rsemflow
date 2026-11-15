@@ -4,18 +4,32 @@
 \name{rsemflow-package}
 \alias{rsemflow}
 \alias{rsemflow-package}
-\title{rsemflow: metadata-driven downstream analysis for RSEM}
+\title{rsemflow: standard bulk RNA-seq results from RSEM files and a sample table}
 \description{
-rsemflow imports RSEM \verb{*.genes.results} files and ordinary sample metadata,
-then produces tabular downstream-analysis results: expression summaries,
-normalization, PCA, sample correlation, DESeq2 differential expression,
-preranked GSEA, GSVA/ssGSEA scores, and gene annotation.
+rsemflow takes RSEM \verb{*.genes.results} files and an ordinary sample
+metadata table and produces the usual downstream results as tables. The
+same functions back the \code{rsemflow} command-line tool (\code{\link[=cli_main]{cli_main()}}).
 }
-\details{
-The same functions back the \code{rsemflow} command-line tool (see
-\code{\link[=cli_main]{cli_main()}}). The package does not draw figures or write reports; every
-output is a tab-separated table for use in any downstream tool.
+\section{Workflow}{
+
+\enumerate{
+\item Import: \code{\link[=read_rsem_study]{read_rsem_study()}} checks the files against the metadata;
+\code{\link[=write_study]{write_study()}} and \code{\link[=read_study]{read_study()}} store and reload the study.
+\item Summaries: \code{\link[=summarize_study]{summarize_study()}}.
+\item Sample structure: \code{\link[=compute_pca]{compute_pca()}}, \code{\link[=compute_correlation]{compute_correlation()}}.
+\item Normalized values: \code{\link[=normalize_expression]{normalize_expression()}} (VST, normalized counts,
+log2 TPM).
+\item Differential expression: \code{\link[=differential_deseq2]{differential_deseq2()}}, with the design
+stated explicitly.
+\item Pathways: \code{\link[=run_gsea]{run_gsea()}}, \code{\link[=run_gsva]{run_gsva()}}.
+\item Annotation: \code{\link[=annotate_gtf]{annotate_gtf()}}, \code{\link[=annotate_ensembl]{annotate_ensembl()}}.
 }
+
+The design is always given by the user, never guessed, and inconsistent
+input stops the run with a message. The package writes tables only; it does
+not draw figures or write reports.
+}
+
 \seealso{
 Useful links:
 \itemize{

@@ -4,13 +4,15 @@ Title: Metadata-Driven Downstream Analysis for RSEM Gene-Level Results
 Version: 0.1.1
 Authors@R: person("Daiki", "Kumakura", role = c("aut", "cre"),
     email = "55353329+DaikiKumakura@users.noreply.github.com")
-Description: A command-line and R interface for reproducible downstream
-    analysis of RSEM gene-level expression estimates. 'rsemflow' imports
-    '*.genes.results' files together with ordinary sample metadata, computes
-    expression-level summaries, normalization, principal component analysis,
-    sample correlation, 'DESeq2' differential expression, preranked gene set
-    enrichment analysis, 'GSVA' or 'ssGSEA' pathway scores, and Ensembl gene
-    annotation. Every result is written as a tab-separated table; the package
+Description: Standard downstream results for bulk RNA-seq from RSEM
+    gene-level files and an ordinary sample metadata table, from the command
+    line or from R. 'rsemflow' imports '*.genes.results' files, checks them
+    against the metadata, and computes expression summaries, normalized
+    expression, principal component analysis, sample correlation, 'DESeq2'
+    differential expression for an explicitly stated design, preranked gene
+    set enrichment analysis, 'GSVA' or 'ssGSEA' pathway scores, and gene
+    annotation, for human and mouse. Inconsistent input stops the run instead
+    of producing results. Every result is a tab-separated table; the package
     does not draw figures.
 License: MIT + file LICENSE
 URL: https://daikikumakura.github.io/rsemflow/,
