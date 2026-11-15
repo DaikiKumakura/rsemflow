@@ -201,7 +201,7 @@ Besides the unit tests, rsemflow is checked on real RSEM output from ENCODE
 genes). Each knockdown target is among the most significant decreases in its
 own knockdown and nearly unchanged in the other. The script downloads the
 data, runs the workflow and checks the results:
-[`validation/encode-k562-knockdown/`](validation/encode-k562-knockdown/).
+[`validation/encode-k562-knockdown/`](https://github.com/DaikiKumakura/rsemflow/tree/main/validation/encode-k562-knockdown).
 R CMD check passes on Linux, macOS and Windows in CI.
 
 ## Scope

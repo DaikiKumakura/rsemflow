@@ -34,31 +34,31 @@ articles:
       - designs
 
 reference:
-  - title: "1. Import"
+  - title: "Step 1: Import"
     desc: "Read RSEM files with the sample table, check them, and store the study."
     contents:
       - read_rsem_study
       - read_study
-  - title: "2. Summaries"
+  - title: "Step 2: Summaries"
     desc: "Total counts, detected genes and TPM quantiles per sample and per gene."
     contents:
       - summarize_study
-  - title: "3. Sample structure and normalized values"
+  - title: "Step 3: Sample structure and normalized values"
     desc: "PCA, sample correlation, and VST, normalized counts or log2 TPM."
     contents:
       - compute_pca
       - compute_correlation
       - normalize_expression
-  - title: "4. Differential expression"
+  - title: "Step 4: Differential expression"
     desc: "DESeq2 for an explicitly stated design; one table per comparison."
     contents:
       - differential_deseq2
-  - title: "5. Pathways"
+  - title: "Step 5: Pathways"
     desc: "Preranked GSEA and GSVA or ssGSEA scores with MSigDB or your own gene sets."
     contents:
       - run_gsea
       - run_gsva
-  - title: "6. Annotation"
+  - title: "Step 6: Annotation"
     desc: "Gene symbols and descriptions from the GTF or from the OrgDb."
     contents:
       - annotate_gtf
