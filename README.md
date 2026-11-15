@@ -6,45 +6,61 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24210478.svg)](https://doi.org/10.5281/zenodo.24210478)
 <!-- badges: end -->
 
+**Standard bulk RNA-seq results from RSEM files and a sample table, as TSV
+tables, from the command line or from R.**
+
+rsemflow takes RSEM `*.genes.results` files and an ordinary sample metadata
+table and produces the usual downstream results: expression summaries,
+normalized expression, PCA, sample correlation, DESeq2 differential
+expression, preranked GSEA, GSVA/ssGSEA scores and gene annotation. It
+connects established Bioconductor methods (tximport, DESeq2, fgsea, GSVA,
+msigdbr) behind one interface and writes tables only, so the results can be
+plotted or analysed further in R, Python, Excel or Prism.
+
+- **You state the design.** The model formula, the term to test and the
+  reference levels are always given explicitly; rsemflow never guesses a
+  design, removes samples or interprets results.
+- **It stops rather than return a meaningless result.** Mismatched sample IDs,
+  inconsistent gene tables, missing model values and confounded designs stop
+  the run with a message.
+- **Human and mouse,** with MSigDB gene sets for both.
+- **Checked on real data:** on ENCODE knockdown experiments, each knockdown
+  target comes out among the most significant decreases in its own knockdown.
+
 **Documentation:** <https://daikikumakura.github.io/rsemflow/> ·
 [Get started](https://daikikumakura.github.io/rsemflow/articles/rsemflow.html) ·
-[Installation](https://daikikumakura.github.io/rsemflow/articles/installation.html) ·
 [Tutorial](https://daikikumakura.github.io/rsemflow/articles/tutorial.html) ·
 [Designs](https://daikikumakura.github.io/rsemflow/articles/designs.html) ·
-[Reference](https://daikikumakura.github.io/rsemflow/reference/)
+[Installation](https://daikikumakura.github.io/rsemflow/articles/installation.html)
 
-Downstream bulk RNA-seq analysis of RSEM `*.genes.results` files, driven by an
-ordinary sample metadata table and run from the command line or from R.
+## Workflow
 
 ```text
-*.genes.results + metadata.tsv
-        │  rsemflow data import
-        ▼
-     study/  ──► summaries · annotation · normalization · PCA · correlation
-                 DESeq2 · preranked GSEA · GSVA / ssGSEA
-        ▼
-   TSV tables
+  data/*.genes.results + metadata.tsv
+                 │
+   data import                 validate and store the study
+                 │
+   data summarize              counts, detected genes, TPM quantiles
+   expression pca / correlation  sample structure
+   expression normalize        VST, normalized counts, log2 TPM
+   differential deseq2         one table per comparison
+   enrichment gsea / gsva      pathways (MSigDB or your GMT)
+   annotation gtf / ensembl    gene symbols and descriptions
+                 │
+           TSV tables
 ```
 
-rsemflow connects established Bioconductor methods (tximport, DESeq2, fgsea,
-GSVA, msigdbr) behind one consistent interface. It writes tables only — no
-figures, HTML reports, or Shiny apps — so results can be plotted or analysed
-further in R, Python, Excel, or Prism.
-
-Two principles guide the design:
-
-- **You state the experimental design.** The model formula, the term to test,
-  and the reference levels are always given explicitly. rsemflow never guesses
-  a design, removes samples, or interprets results.
-- **Stop rather than return a meaningless result.** Mismatched sample IDs,
-  inconsistent gene tables, missing values in model variables, and
-  rank-deficient (confounded) designs all stop the run with a message.
+| Step | Command | R function | Output |
+|---|---|---|---|
+| Import | `data import` | `read_rsem_study()`, `write_study()` | study folder: counts, TPM, effective length, metadata |
+| Summaries | `data summarize` | `summarize_study()` | per-sample and per-gene summaries |
+| Sample structure | `expression pca`, `expression correlation` | `compute_pca()`, `compute_correlation()` | PCA scores, loadings, variance; sample × sample matrix |
+| Normalized values | `expression normalize` | `normalize_expression()` | gene × sample matrix (`vst`, `normalized-counts`, `log2-tpm`) |
+| Differential expression | `differential deseq2` | `differential_deseq2()` | one table per comparison, with the design matrix and contrasts |
+| Pathways | `enrichment gsea`, `enrichment gsva` | `run_gsea()`, `run_gsva()` | GSEA results; pathway × sample scores |
+| Annotation | `annotation gtf`, `annotation ensembl` | `annotate_gtf()`, `annotate_ensembl()` | one row per RSEM gene with symbol and status |
 
 ## Installation
-
-rsemflow needs R ≥ 4.3 and several Bioconductor packages.
-
-### From R-universe
 
 ```r
 install.packages("BiocManager")
@@ -54,263 +70,172 @@ install.packages("rsemflow", repos = c(
 ))
 ```
 
-### From GitHub (R)
+Or from GitHub: `BiocManager::install("DaikiKumakura/rsemflow")`. rsemflow
+needs R 4.3 or later. To get the `rsemflow` command on Linux, macOS, WSL or an
+HPC login node, clone the repository and run `bash install_local.sh`; on
+Windows, call the same commands as `Rscript -e "rsemflow::cli_main()" data
+import ...`. See [Installation](https://daikikumakura.github.io/rsemflow/articles/installation.html).
 
-```r
-install.packages("BiocManager")
-BiocManager::install("DaikiKumakura/rsemflow")
-```
+## Quick start
 
-`BiocManager` resolves the Bioconductor dependencies. Human and mouse data are
-supported.
-
-### From a source checkout (with the command-line launcher)
-
-On Linux, macOS, WSL, or an HPC login node:
-
-```bash
-git clone https://github.com/DaikiKumakura/rsemflow.git
-cd rsemflow
-bash install_local.sh
-```
-
-The installer installs missing dependencies (`scripts/install_dependencies.R`),
-runs `R CMD INSTALL .`, links the `rsemflow` launcher into
-`${RSEMFLOW_BIN:-$HOME/.local/bin}`, and prints the installed version. Set
-`RSEMFLOW_SKIP_DEPS=1` to skip the dependency step. Add the launcher directory
-to `PATH` if needed:
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-rsemflow --help
-```
-
-On Windows without WSL, call the same CLI through `Rscript`:
-
-```bash
-Rscript -e "rsemflow::cli_main()" data import --i-rsem-dir data --m-metadata metadata.tsv --o-study study
-```
-
-## Input
-
-```text
-project/
-├── data/
-│   ├── S01.genes.results
-│   ├── S02.genes.results
-│   └── ...
-└── metadata.tsv
-```
-
-**RSEM files.** The sample ID is the file name without `.genes.results`. Each
-file needs the standard columns `gene_id`, `transcript_id(s)`, `length`,
-`effective_length`, `expected_count`, `TPM`, and `FPKM`. All files must contain
-the same genes in the same order, without duplicated `gene_id`.
-
-**Metadata.** A plain TSV or CSV (by file extension) with a `sample_id` column;
-every other column is optional.
-
-```text
-sample_id	condition	batch	age
-S01	Control	A	51
-S02	Control	B	43
-S03	Drug	A	48
-S04	Drug	B	55
-```
-
-Every RSEM sample must appear in the metadata and vice versa. `sample_id` is
-always read as text, so `001` stays `001`. A column whose values all parse as
-numbers becomes numeric; any other column becomes categorical. Override the
-guess with `--p-categorical COLUMN` (e.g. time points `0, 6, 24` as three
-groups) or `--p-numeric COLUMN`.
-
-## Command-line interface
-
-```text
-rsemflow <module> <action> [options]
-```
-
-| Module | Actions |
-| --- | --- |
-| `data` | `import`, `summarize` |
-| `annotation` | `ensembl`, `gtf` |
-| `expression` | `normalize`, `pca`, `correlation` |
-| `differential` | `deseq2` |
-| `enrichment` | `gsea`, `gsva` |
-
-Option prefixes tell you what each option is: `--i-*` inputs, `--m-*`
-metadata, `--p-*` parameters, `--o-*` outputs. Every level has help:
-`rsemflow --help`, `rsemflow differential --help`,
-`rsemflow differential deseq2 --help`.
-
-### A typical workflow
-
-```bash
-# 1. Import and validate
-rsemflow data import --i-rsem-dir data/ --m-metadata metadata.tsv --o-study study/
-
-# 2. Expression-level summaries (not alignment QC)
-rsemflow data summarize --i-study study/ --o-summary results/summary/
-
-# 3. Sample structure
-rsemflow expression pca --i-study study/ --o-pca results/pca/
-rsemflow expression correlation --i-study study/ --o-correlation results/correlation.tsv
-
-# 4. Differential expression
-rsemflow differential deseq2 \
-  --i-study study/ \
-  --p-formula '~ batch + condition' \
-  --p-term condition \
-  --p-reference condition::Control \
-  --o-differential results/differential/
-
-# 5. Pathways
-rsemflow enrichment gsea \
-  --i-differential results/differential/condition_Drug_vs_Control.tsv \
-  --p-species human --p-collection hallmark \
-  --o-enrichment results/gsea.tsv
-rsemflow enrichment gsva \
-  --i-study study/ --p-species human --p-collection hallmark \
-  --o-scores results/gsva.tsv
-
-# 6. Gene annotation (prefer the GTF used to build the RSEM reference)
-rsemflow annotation gtf --i-study study/ --i-gtf genes.gtf.gz --o-annotation results/annotation.tsv
-```
-
-A complete run on the bundled synthetic data (6 samples, 200 genes; no
-downloads needed):
-
-```bash
-bash inst/extdata/example/run_example.sh example-output
-```
-
-### Differential-expression designs
-
-`--p-formula` is the full model, `--p-term` chooses which results to write, and
-`--p-reference COLUMN::LEVEL` (repeatable) sets factor reference levels.
-
-| Design | Options | Tables written |
-| --- | --- | --- |
-| Two groups | `--p-formula '~ condition' --p-term condition --p-reference condition::Control` | `condition_Drug_vs_Control.tsv` |
-| Batch-adjusted | `--p-formula '~ batch + condition' --p-term condition ...` | as above |
-| Paired | `--p-formula '~ patient + condition' --p-term condition --p-reference condition::Pre` | `condition_Post_vs_Pre.tsv` |
-| Several groups | `--p-term treatment --p-reference treatment::Vehicle` | every level vs `Vehicle`; add `--p-contrast treatment::DrugB::DrugA` for others |
-| Numeric covariate | `--p-formula '~ sex + age + score' --p-term score` | `score.tsv` (per-unit change) |
-| Interaction | `--p-formula '~ genotype * treatment' --p-term genotype:treatment` | one table per interaction coefficient |
-| Simple effect | interaction formula + `--p-term treatment --p-contrast treatment::Drug::Vehicle --p-at genotype::KO` | `treatment_Drug_vs_Vehicle_at_genotype_KO.tsv` |
-| Omnibus (LRT) | `--p-test lrt --p-formula '~ patient + time' --p-reduced '~ patient' --p-term time` | `time_omnibus.tsv` |
-
-Notes:
-
-- When the term interacts with another factor (`~ genotype * treatment`), the
-  plain `--p-term treatment` comparisons are effects at the reference level of
-  the other factor. rsemflow warns about this; use `--p-at` for other levels.
-- `--p-at` takes exactly one `--p-at` and one `--p-contrast`, and the contrast
-  denominator must be the reference level.
-- LRT tables have `log2FoldChange` and `lfcSE` set to `NA`: the omnibus test
-  has no single direction. They cannot be used for preranked GSEA.
-- Log fold changes are the ordinary DESeq2 estimates (no shrinkage).
-- The design matrix must be full rank. rsemflow does not judge whether you
-  have enough biological replicates.
-
-The output directory also contains `design-matrix.tsv` (the model matrix
-used), `contrasts.tsv` (one row per table, with the DESeq2 coefficient), and
-`analysis-info.tsv` (formula, term, test, reduced formula, alpha).
-
-### Gene sets
-
-`--p-collection` accepts `hallmark`, `reactome`, `go-bp`, `go-mf`, or `go-cc`,
-or a raw MSigDB code with `--p-subcollection` (for example
-`--p-collection C2 --p-subcollection CP:KEGG_MEDICUS`). Gene sets come from
-`msigdbr`. Human uses the human MSigDB; mouse uses the mouse MSigDB, where the
-aliases map to `MH`, `M2`, and `M5` (raw codes must be mouse codes). Use `--i-genesets file.gmt` for custom
-sets.
-
-Genes are matched by stable Ensembl gene ID (`ENSG00000141510.18` →
-`ENSG00000141510`). For GSEA, when several rows share a stable ID the one with
-the largest absolute statistic is kept; for GSVA their expression is averaged.
-`fgseaMultilevel` estimates p-values by sampling, so GSEA uses a fixed seed
-(`--p-seed`, default 42) and repeated runs give identical tables.
-
-## Outputs
-
-| Command | Files |
-| --- | --- |
-| `data import` | `study.rds`, `metadata.tsv`, `samples.tsv`, `expected_count.tsv`, `tpm.tsv`, `effective_length.tsv`, `study-info.tsv` |
-| `data summarize` | `samples.tsv` (total counts, detected genes, TPM quantiles), `genes.tsv` (mean/median count and TPM, detection) |
-| `annotation ensembl` / `gtf` | one row per RSEM gene; the original `gene_id` is kept alongside `ensembl_gene_id`, symbol, and status |
-| `expression normalize` | gene × sample matrix (`vst`, `normalized-counts`, or `log2-tpm`) |
-| `expression pca` | `scores.tsv`, `loadings.tsv`, `variance.tsv`, `analysis-info.tsv` (VST, top 500 variable genes, centred, unscaled by default) |
-| `expression correlation` | sample × sample matrix (VST + Pearson by default) |
-| `differential deseq2` | one table per comparison plus the three manifest files above |
-| `enrichment gsea` | fgsea columns, `leadingEdge` as `GENE1;GENE2`, plus collection and MSigDB version; sorted by `padj` then `|NES|` |
-| `enrichment gsva` | pathway × sample scores from `log2(TPM + 1)` |
-
-RSEM sets `effective_length` to 0 for genes shorter than the fragment length.
-Those genes have zero counts; rsemflow keeps the original values in the study
-and replaces the zeros with 1 only when building the DESeq2 object, as the
-DESeq2 vignette recommends.
-
-## Validation
-
-Besides the unit tests, rsemflow is checked on real RSEM output from ENCODE
-(K562 cells, PTBP1 and SRSF1 shRNA knockdowns with a shared control; 59,526
-genes). Each knockdown target comes out among the most significant decreases
-in its own knockdown and nearly unchanged in the other. The script downloads
-the data, runs the workflow, and checks the results; see
-[`validation/encode-k562-knockdown/`](validation/encode-k562-knockdown/).
-
-## Using rsemflow from R
-
-Every CLI action calls an exported R function:
+The package includes a small synthetic study (6 samples, 200 genes), so this
+runs as it is, with no downloads:
 
 ```r
 library(rsemflow)
+ex <- system.file("extdata", "example", package = "rsemflow")
 
-study <- read_rsem_study("data", "metadata.tsv")
-write_study(study, "study")
-
+study <- read_rsem_study(file.path(ex, "data"), file.path(ex, "metadata.tsv"))
 summary <- summarize_study(study)
 pca <- compute_pca(study)
-cor_mat <- compute_correlation(study)
-
 de <- differential_deseq2(
   study,
   formula = ~ batch + condition,
   term = "condition",
   reference = "condition::Control"
 )
-gsea <- run_gsea(de$results$condition_Drug_vs_Control, species = "human")
-gsva <- run_gsva(study, species = "human")
+head(de$results$condition_Drug_vs_Control)
 ```
+
+The same from the command line, writing every table to a folder:
+
+```bash
+bash inst/extdata/example/run_example.sh example-output
+```
+
+## Your data
+
+```text
+project/
+├── data/
+│   ├── S01.genes.results
+│   └── S02.genes.results
+└── metadata.tsv
+```
+
+```text
+sample_id	condition	batch	age
+S01	Control	A	51
+S02	Drug	B	43
+```
+
+- **RSEM files:** the sample ID is the file name without `.genes.results`.
+  Every file needs the standard RSEM columns and the same genes in the same
+  order.
+- **Metadata:** TSV or CSV with a `sample_id` column; every other column is
+  optional. Every RSEM sample must be in the metadata and the other way round.
+  `sample_id` is read as text (`001` stays `001`). A column of numbers becomes
+  numeric and any other column categorical; override with
+  `--p-categorical COLUMN` (for example time points `0, 6, 24` as groups) or
+  `--p-numeric COLUMN`.
+
+## A typical run
+
+```bash
+rsemflow data import --i-rsem-dir data/ --m-metadata metadata.tsv --o-study study/
+rsemflow data summarize --i-study study/ --o-summary results/summary/
+rsemflow expression pca --i-study study/ --o-pca results/pca/
+
+rsemflow differential deseq2 --i-study study/ \
+  --p-formula '~ batch + condition' --p-term condition \
+  --p-reference condition::Control --o-differential results/differential/
+
+rsemflow enrichment gsea \
+  --i-differential results/differential/condition_Drug_vs_Control.tsv \
+  --p-species human --p-collection hallmark --o-enrichment results/gsea.tsv
+rsemflow enrichment gsva --i-study study/ --p-species human \
+  --p-collection hallmark --o-scores results/gsva.tsv
+
+rsemflow annotation gtf --i-study study/ --i-gtf genes.gtf.gz --o-annotation results/annotation.tsv
+```
+
+Option prefixes say what each option is: `--i-*` inputs, `--m-*` metadata,
+`--p-*` parameters, `--o-*` outputs. Every level has `--help`
+(`rsemflow differential deseq2 --help`). The
+[Tutorial](https://daikikumakura.github.io/rsemflow/articles/tutorial.html)
+runs every command on the example and shows what each one writes.
+
+## Designs
+
+`--p-formula` is the full model, `--p-term` chooses which results to write,
+and `--p-reference COLUMN::LEVEL` sets reference levels.
+
+| Design | Key options |
+|---|---|
+| Two groups | `--p-formula '~ condition' --p-term condition --p-reference condition::Control` |
+| Batch-adjusted | `--p-formula '~ batch + condition' --p-term condition` |
+| Paired | `--p-formula '~ patient + condition' --p-term condition` |
+| Several groups | `--p-term treatment --p-reference treatment::Vehicle`; other pairs with `--p-contrast treatment::DrugB::DrugA` |
+| Numeric covariate | `--p-formula '~ sex + age + score' --p-term score` |
+| Interaction | `--p-formula '~ genotype * treatment' --p-term genotype:treatment` |
+| Effect within one group | interaction formula + `--p-contrast treatment::Drug::Vehicle --p-at genotype::KO` |
+| Any effect of time (LRT) | `--p-test lrt --p-formula '~ patient + time' --p-reduced '~ patient' --p-term time` |
+
+Log fold changes are the ordinary DESeq2 estimates (no shrinkage). The design
+matrix must be full rank; rsemflow does not judge whether you have enough
+replicates. Every run also writes `design-matrix.tsv`, `contrasts.tsv` and
+`analysis-info.tsv`. Each design is explained with its output in
+[Designs](https://daikikumakura.github.io/rsemflow/articles/designs.html).
+
+## Details that affect results
+
+- **Gene sets:** `--p-collection` takes `hallmark`, `reactome`, `go-bp`,
+  `go-mf`, `go-cc`, or a raw MSigDB code with `--p-subcollection`; human uses
+  the human MSigDB and mouse the mouse MSigDB (`MH`, `M2`, `M5`). Use
+  `--i-genesets file.gmt` for your own sets.
+- **Gene matching:** by stable Ensembl ID (`ENSG00000141510.18` →
+  `ENSG00000141510`). When several rows share an ID, GSEA keeps the largest
+  absolute statistic and GSVA averages the expression.
+- **Reproducibility:** GSEA estimates p-values by sampling with a fixed seed
+  (`--p-seed`, default 42), so repeated runs give identical tables.
+- **Short genes:** RSEM sets `effective_length` to 0 for genes shorter than
+  the fragment length; rsemflow keeps the values and replaces those zeros with
+  1 only inside DESeq2, as the DESeq2 vignette recommends.
+- **PCA and correlation** use VST and the 500 most variable genes by default;
+  GSVA uses `log2(TPM + 1)`.
+
+## Validation
+
+Besides the unit tests, rsemflow is checked on real RSEM output from ENCODE
+(K562 cells, PTBP1 and SRSF1 shRNA knockdowns with a shared control; 59,526
+genes). Each knockdown target is among the most significant decreases in its
+own knockdown and nearly unchanged in the other. The script downloads the
+data, runs the workflow and checks the results:
+[`validation/encode-k562-knockdown/`](validation/encode-k562-knockdown/).
+R CMD check passes on Linux, macOS and Windows in CI.
 
 ## Scope
 
 Included: RSEM gene-level import, expression summaries, annotation,
 normalization, PCA, correlation, DESeq2, GSEA, GSVA/ssGSEA.
 
-Not included: plotting, reports, automatic sample removal or design selection,
-LFC shrinkage, alignment-level QC, transcript-level or splicing analysis,
-testing of GSVA scores between groups.
+Not included: plots, reports, automatic sample removal or design selection,
+log fold change shrinkage, alignment-level QC, transcript-level or splicing
+analysis, tests on GSVA scores between groups.
+
+## Related tools
+
+- [rsemverse](https://daikikumakura.github.io/rsemverse/) reads the same RSEM
+  files into a gene symbol by sample table in R and filters, normalizes and
+  reshapes it for plotting.
+- [bulkdeconv](https://daikikumakura.github.io/bulkdeconv/) estimates
+  cell-type composition from a TPM table.
 
 ## Development
 
 ```bash
 make deps      # install dependencies
-make document  # regenerate man/ and NAMESPACE (roxygen2)
+make document  # regenerate man/ and NAMESPACE
 make test      # testthat suite
 make check     # R CMD build + R CMD check
 ```
 
 ## Citation
 
-rsemflow only coordinates other methods; please cite those you use
-(`citation("rsemflow")` lists RSEM, tximport, DESeq2, fgsea, GSVA, and MSigDB).
+Cite the archived version: <https://doi.org/10.5281/zenodo.24210478>.
+rsemflow coordinates other methods; please cite those you use as well
+(`citation("rsemflow")` lists RSEM, tximport, DESeq2, fgsea, GSVA and MSigDB).
 
 ## License
 
 MIT © Daiki Kumakura
-
-## Related writing
-
-- [rsemflow on the author's site](https://daikikumakura.github.io/software/rsemflow.html): summary and installation (documentation: <https://daikikumakura.github.io/rsemflow/>).
