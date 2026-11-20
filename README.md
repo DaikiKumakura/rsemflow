@@ -3,7 +3,7 @@
 <!-- badges: start -->
 [![R-universe](https://daikikumakura.r-universe.dev/badges/rsemflow)](https://daikikumakura.r-universe.dev/rsemflow)
 [![R-CMD-check](https://github.com/DaikiKumakura/rsemflow/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/DaikiKumakura/rsemflow/actions/workflows/R-CMD-check.yaml)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24210478.svg)](https://doi.org/10.5281/zenodo.24210478)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24210477.svg)](https://doi.org/10.5281/zenodo.24210477)
 <!-- badges: end -->
 
 **Standard bulk RNA-seq results from RSEM files and a sample table, as TSV
@@ -232,7 +232,7 @@ make check     # R CMD build + R CMD check
 
 ## Citation
 
-Cite the archived version: <https://doi.org/10.5281/zenodo.24210478>.
+Cite the archived version: <https://doi.org/10.5281/zenodo.24210477>.
 rsemflow coordinates other methods; please cite those you use as well
 (`citation("rsemflow")` lists RSEM, tximport, DESeq2, fgsea, GSVA and MSigDB).
 
