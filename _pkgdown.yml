@@ -2,6 +2,13 @@ url: https://daikikumakura.github.io/rsemflow/
 
 template:
   bootstrap: 5
+  bslib:
+    bg: "#ffffff"
+    fg: "#252525"
+    primary: "#25577b"
+    border-color: "#dddddd"
+    line-height-base: 1.65
+    headings-font-weight: 500
 
 home:
   title: "rsemflow: standard bulk RNA-seq results from RSEM files"
@@ -10,21 +17,6 @@ home:
     gene results and a sample table, from the command line or from R, for
     human and mouse.
 
-navbar:
-  structure:
-    left: [intro, installation, tutorial, designs, reference, news]
-    right: [search, github]
-  components:
-    installation:
-      text: Installation
-      href: articles/installation.html
-    tutorial:
-      text: Tutorial
-      href: articles/tutorial.html
-    designs:
-      text: Designs
-      href: articles/designs.html
-
 articles:
   - title: Guides
     navbar: ~
@@ -32,6 +24,39 @@ articles:
       - installation
       - tutorial
       - designs
+
+navbar:
+  bg: light
+  type: light
+  structure:
+    left: [start, reference, articles, news, downloads]
+    right: [search, github]
+  components:
+    start:
+      text: Get started
+      menu:
+        - text: Install
+          href: "articles/installation.html"
+        - text: First example
+          href: "articles/rsemflow.html"
+    articles:
+      text: Articles
+      menu:
+        - text: Tutorial
+          href: articles/tutorial.html
+        - text: Designs
+          href: articles/designs.html
+    downloads:
+      text: Downloads
+      menu:
+        - text: Release
+          href: "https://github.com/DaikiKumakura/rsemflow/releases/tag/v0.1.1"
+        - text: R-universe
+          href: "https://daikikumakura.r-universe.dev/rsemflow"
+        - text: Zenodo
+          href: "https://doi.org/10.5281/zenodo.24210478"
+        - text: Portfolio
+          href: "https://daikikumakura.github.io/software/rsemflow.html"
 
 reference:
   - title: "Step 1: Import"
