@@ -273,9 +273,11 @@ R CMD check passes on Linux, macOS and Windows in CI.
 
 ## Citation
 
-Cite the archived version: <https://doi.org/10.5281/zenodo.24210477>.
-rsemflow coordinates other methods; please cite those you use as well
-(`citation("rsemflow")` lists RSEM, tximport, DESeq2, fgsea, GSVA and MSigDB).
+Kumakura, D. (2026). *rsemflow: Metadata-Driven Downstream Analysis for RSEM Gene-Level Results* [Software]. [DOI: 10.5281/zenodo.24210477](https://doi.org/10.5281/zenodo.24210477).
+
+Citation metadata: [CITATION.cff](CITATION.cff).
+
+Also cite the methods used. Run `citation("rsemflow")` for the list.
 
 ## License
 
