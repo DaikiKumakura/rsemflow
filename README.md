@@ -277,4 +277,4 @@ rsemflow coordinates other methods; please cite those you use as well
 
 ## License
 
-MIT © Daiki Kumakura
+This project is licensed under MIT. See [LICENSE.md](LICENSE.md) for the license terms.
