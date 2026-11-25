@@ -54,7 +54,7 @@ bash inst/extdata/example/run_example.sh example-output
 
 ## Documentation
 
-[Function reference](https://daikikumakura.github.io/rsemflow/reference/) · [Changelog](https://daikikumakura.github.io/rsemflow/news/) · [Releases](https://github.com/DaikiKumakura/rsemflow/releases)
+[Package website](https://daikikumakura.github.io/rsemflow/) · [Function reference](https://daikikumakura.github.io/rsemflow/reference/) · [Changelog](https://daikikumakura.github.io/rsemflow/news/) · [Releases](https://github.com/DaikiKumakura/rsemflow/releases) · [R-universe](https://daikikumakura.r-universe.dev/rsemflow)
 
 ## Workflow
 
@@ -223,16 +223,6 @@ replicates. Every run also writes `design-matrix.tsv`, `contrasts.tsv` and
 
 </details>
 
-## Validation
-
-Besides the unit tests, rsemflow is checked on real RSEM output from ENCODE
-(K562 cells, PTBP1 and SRSF1 shRNA knockdowns with a shared control; 59,526
-genes). Each knockdown target is among the most significant decreases in its
-own knockdown and nearly unchanged in the other. The script downloads the
-data, runs the workflow and checks the results:
-[`validation/encode-k562-knockdown/`](https://github.com/DaikiKumakura/rsemflow/tree/main/validation/encode-k562-knockdown).
-R CMD check passes on Linux, macOS and Windows in CI.
-
 ## Scope
 
 Included: RSEM gene-level import, expression summaries, annotation,
@@ -268,6 +258,18 @@ make check     # R CMD build + R CMD check
 ```
 
 </details>
+
+<a id="validation"></a>
+
+## Validation and limitations
+
+Besides the unit tests, rsemflow is checked on real RSEM output from ENCODE
+(K562 cells, PTBP1 and SRSF1 shRNA knockdowns with a shared control; 59,526
+genes). Each knockdown target is among the most significant decreases in its
+own knockdown and nearly unchanged in the other. The script downloads the
+data, runs the workflow and checks the results:
+[`validation/encode-k562-knockdown/`](https://github.com/DaikiKumakura/rsemflow/tree/main/validation/encode-k562-knockdown).
+R CMD check passes on Linux, macOS and Windows in CI.
 
 ## Citation
 
