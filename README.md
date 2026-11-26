@@ -37,7 +37,26 @@ de <- differential_deseq2(
   term = "condition",
   reference = "condition::Control"
 )
-head(de$results$condition_Drug_vs_Control)
+res <- de$results$condition_Drug_vs_Control
+head(res[, c("gene_id", "baseMean", "log2FoldChange", "pvalue", "padj")], 4)
+```
+
+```text
+            gene_id baseMean log2FoldChange       pvalue         padj
+1 ENSG00000000001.2 169.1780       2.397434 3.199762e-05 0.0007999406
+2 ENSG00000000002.3 208.8794       2.232664 2.306482e-04 0.0038441366
+3 ENSG00000000003.1 248.5807       2.127022 1.475414e-03 0.0126338835
+4 ENSG00000000004.2 288.2820       2.053341 7.830909e-03 0.0522060612
+```
+
+Each row is a gene: its mean expression, the log2 fold change of Drug against Control (adjusted for `batch`),
+and the p-value and the adjusted p-value of the DESeq2 Wald test. `summary` holds the per-sample and per-gene
+summaries and `pca` the principal components of the study.
+
+The same from the command line, writing every table to a folder:
+
+```bash
+bash inst/extdata/example/run_example.sh example-output
 ```
 
 ## Documentation
